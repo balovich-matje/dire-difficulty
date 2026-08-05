@@ -869,3 +869,235 @@ element beyond the `stalker` tell.
    after Skill Proficiencies' multipliers and Archetypes' shapers.
 
 Nothing goes to Modrinth without explicit per-release go-ahead from the user.
+
+---
+
+## 10. As built — iteration 1
+
+Written at integration, 2026-08-05, after three parallel agents landed the affix/elite core, the
+progression/spawn/config half and the client rendering. **This section outranks §1–§9 wherever
+they disagree** — those are the spec, this is the measurement.
+
+Everything below is a deliberate deviation with its reason, or a gap with its consequence.
+Nothing here is a discovered bug left standing.
+
+### 10.1 What is verified, and by what
+
+| Claim | Evidence |
+|---|---|
+| Build green | `./gradlew build`, single node, zero errors and zero warnings. `buildAndCollect` → `build/libs/0.1.0/escalation-0.1.0+26.2.jar` (154 KB, 89 classes) |
+| Headless dedicated server boots clean | `Done (0.806s)`, **zero mixin errors, zero ERROR lines, zero WARN lines**, clean `stop`, **exit 0** |
+| All eight server injectors resolve | `injectors.defaultRequire: 1` on both configs makes a boot the proof, and `javap` on the `-Dmixin.debug.export` dumps confirms the handlers by name in all five transformed targets: `LivingEntity` (`dropEliteLoot`, `scaleEliteExperience`, `shapeEliteDamage`), `Mob` (`rollElite`, `sunBurnImmunity`), `MobCategory` (`mobCap`, `despawnDistance`, `noDespawnDistance`), `NaturalSpawner` (`spawnFrequency`), `Monster` (`daySpawning`) |
+| **Guarantee B1** (§4.4) | `/escalation audit <rarity> 5000` at all four rarities under Storm Front: **0 violations**, worst EHP index 5.83 vs the 6.00 ceiling, mean affix counts 1.00 / 2.00 / 3.99 / 4.88. The probe re-derives the caps, the exclusions, the slot/budget limits and the index from `Tuning` and `AffixClass` rather than asking `AffixBudget` whether `AffixBudget` was right |
+| Promotion end to end | `/escalation spawn` + `/escalation info` + vanilla `/data get entity`: `escalation:elite_health` `+2.4 add_multiplied_base` on a base-20 zombie → 68.0 max health at Legendary; `escalation:elite_scale` `+0.30` → `getScale()` 1.30; `CustomName` `{color:"#FFAA00", extra:[{translate:"entity.minecraft.zombie"}]}` — the rarity colour straight out of `Tuning.RARITY_COLOUR`, wrapping the mob's own translatable name |
+| Exclusion / cap enforcement is real | `spawn … legendary warded rooted bulwark` reports all four rules it bypassed: `class-cap DEFENSE count 3 > 2`, `exclusion warded x rooted`, `exclusion warded x bulwark`, `ehp 6.56 > 6.00` |
+| Loot table (§2.4) | `/escalation loot <rarity> 50` at all four tiers, through `EliteLoot.rollDrops` — the shipped path, not a copy. Whitelist holds: iron/gold/coal/emerald/diamond/ender pearl/netherite scrap/enchanted book and nothing else. T1 never produces emeralds, diamonds, pearls or scrap; T4 never produces coal |
+| Preset stamping | All four presets applied and read back: Sunny Day `0.03 / tier 1`, Gathering Clouds `0.10 / tier 3`, Storm Front `0.22 / tier 4`, Hell on Earth `0.35 / tier 4 / daySpawning true / theHunt true` |
+| Rarity ceiling respected | `spawn … roll` under Sunny Day (`maxRarityTier = 1`) draws Uncommon; under Storm Front it draws across the ladder |
+
+**Smoke harness**: `scratchpad/esc-smoke-final.sh`. It refuses to run without a pre-existing
+`eula=true` (copied from `../specialities/run/`, never accepted fresh).
+
+> **One measurement worth keeping.** The harness runs `forceload add ~ ~` first, and that is not a
+> workaround for a mod bug. A dedicated server with **no players online keeps no chunk in the
+> entity-ticking state**, so a summoned entity sits pending and is invisible to every selector —
+> `/data get entity @n[type=zombie]` answers "No entity was found" for a zombie the summon just
+> reported spawning, and the pending entities all materialise at once the moment something loads
+> the chunk. Any future headless probe that spawns something must force-load first or it will
+> measure nothing and look like a broken feature.
+
+### 10.2 Naming and layout
+
+- **Mod id `escalation`**, as §7.5 requires, permanent. Display name is still "Advanced Difficulty
+  Settings" and the config file follows the display name: `config/advanced-difficulty-settings.json`,
+  with `ConfigManager.LEGACY_FILE_NAMES` shipping **empty from day one** so a later rename to
+  `escalation.json` is a one-line change and nobody loses a setting.
+- Class names follow the id, not §6.1's placeholder `Difficulty*`: `Escalation`, `EscalationConfig`,
+  `EscalationClient`, `EscalationCommands`.
+- **Packages are deeper than §6.1's flat root.** The elite core is `elite/`; the score stack is
+  `progression/` (not `score/`); `SpawnControl` and `TheHunt` are `spawn/`; the mixins are
+  `mixin/elite/`, `mixin/spawn/` and `client/mixin/`. The two features stay separable in the
+  config, in review diffs and at port time, and no two agents' files landed in one directory.
+
+### 10.3 State, and the two plug points
+
+- **No `state/` package and no `ModState` `StateKey` table.** All seven of §6.3's keys collapsed
+  into ONE immutable `EliteData` record behind a **named-method** `platform/EliteStore` seam. The
+  reasoning is Archetypes' own, run in the other direction: the generic table pays for itself at 74
+  keys and ~260 call sites and costs more than it saves at two values on one subject. A later
+  `StateKey` table implements this interface without touching a call site.
+- **Two plug-point interfaces the design does not name, each with a working default**, so the elite
+  half compiles, boots and plays on its own:
+  - `progression/ScoreSource` — the NARROW question the elite roll asks (one number, at a position).
+    Default `ZERO`; `ProgressionScore implements ScoreSource` and calls `ScoreSource.install`.
+    §5.1's wide, per-provider interface kept its own name, `progression/ScoreProvider`.
+  - `elite/EliteRules` — the subset of preset knobs the roll reads. Default `GATHERING_CLOUDS`, its
+    numbers read live from `Tuning` rather than copied. `ConfigEliteRules implements EliteRules` and
+    calls `EliteRules.install`.
+- Init order, committed in `Escalation.onInitialize` and asserted by `EliteSystems`:
+  `ConfigManager.load` → `ConfigEliteRules.register` → `ProgressionScore.register` →
+  `EliteSystems.register` (store, then catalogue, then listeners) → `TheHunt.register` →
+  `EscalationCommands.register`. Both plug points are installed before anything can observe the
+  built-in fallbacks, and the command tree is last because it names the catalogue and the config.
+
+### 10.4 Wire format — §6.5's payload is not built, and that is the deviation to re-read at port time
+
+**There is no `EliteStatePayload` and no `platform/Net` seam.** `EliteData` is a fabric-api
+attachment registered with `AttachmentSyncPredicate.all()`, so fabric-api broadcasts it to every
+tracker and `EliteStore.INSTANCE.get(entity)` answers **on the client**. The client reads it live
+through the seam — no cache to go stale, nothing to leak as entity ids recycle, nothing to
+invalidate on unload or disconnect.
+
+§6.5's argument for a payload is a **port** argument: fapi 0.92.11 on the 1.20.1 node has the
+persistent attachment builder and no sync of any kind. That is about *where the fork lands*, not
+about what this node does — and the fork lands inside `FabricEliteStore`, behind an interface no
+caller can see through, exactly where Archetypes had to build `LegacyStateSync`.
+
+Two format notes so the payload, when it is written, carries the bytes that already exist:
+
+- `EliteData.write`/`read` are spelled in **`FriendlyByteBuf` primitives**, the oldest buffer type
+  present on every target.
+- `NOT_ELITE` is **`-1` as a var-int**, not §6.5's `0xFF` byte, and rarity is an `int`. There is no
+  `affixMask` — the whole record crosses, with affixes as **string ids**. `Affixes.indexOf` still
+  keeps the frozen registration index, so a mask remains available without a format change.
+
+### 10.5 Behaviour deviations, each with its reason
+
+1. **The rarity damage multiplier is in the funnel, not on `ATTACK_DAMAGE`.** That attribute
+   governs a melee swing and nothing else, so an attribute-based multiplier would silently exempt
+   every skeleton's arrow, every witch's potion and every blaze's fireball from §2.1's own Damage
+   column. `EliteCombat.outgoing` applies it uniformly, in §4.4's order: affixes, then the
+   multiplier, then Guarantee A's ceiling.
+2. **`sunwalker` needs no mixin of its own.** Infinite hidden Fire Resistance plus fire-tick
+   clearing in the ticker covers the fire half; the sunlight half is a predicate registered into
+   `SpawnControl.addSunImmunity`, so `MobSunMixin` is **one hook serving two features** and neither
+   feature imports the other.
+3. **`stalker`'s tell is vanilla Glowing on the elite**, not a HUD element. Strictly more
+   informative (it says *by what*, and *from where*), it doubles as the mark's own timer so the
+   affix stores no state, and it keeps this mod out of the `HUD_SHIFT` contract entirely — §6.7's
+   own preference.
+4. **`volley` is a periodic burst on its own interval**, not a per-shot multiplier plus a cooldown
+   multiplier: a ranged mob's cadence lives in its goal, not in an attribute. Burst rises sharply,
+   sustained DPS barely moves, which is the property §3.1 is paying 3 points for.
+   `Tuning.VOLLEY_COOLDOWN_MULTIPLIER` is therefore `VOLLEY_INTERVAL_TICKS`.
+5. **`NaturalSpawnerMixin` uses `@WrapMethod`, and it is forced rather than preferred.**
+   `SpawnState.canSpawn`, `afterSpawn` and `canSpawnForCategoryLocal` are all **private** in 26.2,
+   so a TAIL replay would need three accessors and a hand-copy of vanilla's loop.
+6. **Everything after a hit rides fabric-api's `AFTER_DAMAGE`/`AFTER_DEATH`**, not a second mixin
+   handler. Those hand over the damage **actually taken**, after armour, resistance and blocking —
+   a number no HEAD or RETURN injection has in hand — so a fully blocked hit applies no debuff and
+   a lifesteal cannot heal from damage the victim never took. Two fewer mixins.
+7. **The compat bridges use reflection**, not compile-time references. §6.7 specifies a per-node
+   file dependency on `../specialities/build/libs/<v>/` and `../archetypes/build/libs/<v>/`;
+   adding one now, to read four public primitive-returning methods, would make a `clean` in either
+   sibling repo break **this repo's configuration phase**. Deferred to the port, where the
+   dependency has to exist anyway. Swapping to direct references is a delete, not a rewrite — the
+   public surface is unchanged.
+8. **No `maxLootTier` knob.** §2.1 says rarity fixes the loot tier, so Sunny Day's "T1 only" falls
+   out of `maxRarityTier = 1`. A separate knob could only ever disagree with the rarity.
+9. **`maxRarityTier` is an int 1..4 and `allowedAffixClasses` a `List<String>` (empty means all)**,
+   not enums, so the on-disk format survives the catalogue growing. An unknown class name is
+   *ignored* by the roller, never a parse failure.
+10. **Client: no `EliteNameplate`.** The rarity-coloured name is done server-side in `EliteNameTag`,
+    wrapping the mob's own `EntityType.getDescription()` so every client resolves it in its own
+    language, with **no rarity word** — a word means four new keys, and an untranslated key renders
+    as `elite.escalation.rarity.legendary` over the mob's head, which is worse than no word.
+    `EliteClientState.RENDER_KEY` carries the whole `EliteData`, so a nameplate can be added later
+    with no new plumbing.
+
+### 10.6 Client rendering, as built
+
+- **Scale needed no code at all**, and the chain is measured end to end:
+  `LivingEntity.createLivingAttributes` adds `Attributes.SCALE` (`LivingEntity:344`), which is
+  `setSyncable(true)` (`Attributes:89-90`); `ServerEntity:342` sweeps `getAttributesToSync()` into
+  `ClientboundUpdateAttributesPacket`; `ClientPacketListener:2245` applies it and marks dirty;
+  `LivingEntity.tick` → `refreshDirtyAttributes` → `onAttributeUpdated` routes SCALE to
+  `refreshDimensions()` (`LivingEntity:1137-1138`), which re-derives box and eye height on the
+  client too; and `LivingEntityRenderer.extractRenderState:267` sets `state.scale = getScale()`.
+  One server-side modifier moves the model **and** the hitbox on every client.
+- **The glow is a depth-tested second geometry pass**, not `setGlowingTag`. A `RenderLayer` on
+  every living renderer, registered through fabric-api's
+  `LivingEntityRenderLayerRegistrationCallback` (no mixin for the layer), re-submitting
+  `getParentModel()` at `order(1)` through `RenderTypes.entityTranslucentEmissive` tinted
+  `ARGB.color(0x66, rarity.colour())`. That pipeline depth-**tests** but does not depth-**write**
+  (`RenderPipelines:353-363`), so terrain occludes it and the same-depth re-submit cannot z-fight;
+  it takes no lightmap, so it reads at full brightness in a cave; and it inherits the skin's alpha
+  cutout, so it hugs the real silhouette. `affectsOutline = false` plus `NO_OUTLINE` keep it out of
+  `entityOutlineTarget`, which is the thing that x-rays.
+- **§6.4 says the glow needs no mixin; one client mixin exists anyway, and the table is not
+  wrong.** The *layer* needs none. What needs one is the hop from entity to render state:
+  `RenderLayer.submit` receives only an `EntityRenderState`, which carries **no entity id and no
+  entity reference**. So `LivingEntityRendererMixin` is a single `@Inject(TAIL)` on
+  `extractRenderState` that stashes the `EliteData` under a `RenderStateDataKey`. Full descriptor
+  in the selector, mandatory: javac's erasure bridge gives that method name two overloads.
+- Registered on **every** living renderer rather than filtered to `MobCategory.MONSTER`:
+  eligibility is a server rule, and mirroring it client-side would fail silently the day it widens.
+
+### 10.7 The test kit — `/escalation`, alias `/advdiff`
+
+Registered as one node tree with a Brigadier **redirect** for the alias, so the two spellings
+cannot drift and the client is sent one copy of the arguments.
+
+```
+/escalation score [player]                        combined score + per-source breakdown + the
+                                                  elite chance that score buys
+/escalation info                                  nearest elite within 32 blocks: rarity, hp,
+                                                  scale, affixes, flags, EHP index
+/escalation spawn <entity> [rarity|roll] [affixes…]
+/escalation preset [sunny_day|gathering_clouds|storm_front|hell_on_earth]
+/escalation audit <rarity> <count>                §9.4's roll probe
+/escalation loot <rarity> [count]                 §2.4's table, rolled without a corpse
+```
+
+- **Gate: permission level 2 AND (a player source is in creative | the source has no player).**
+  Archetypes refuses the console because every one of its subcommands mutates the *caller*; this
+  kit acts on the world and on the tables, and the console is how the headless smoke test reaches
+  it. A command the smoke test cannot invoke cannot be smoke-tested. The survival-playthrough gate
+  — the actual point — is unchanged.
+- `spawn` takes **no coordinate argument**: vanilla's `/execute positioned x y z run …` already
+  moves the source, and a coordinate argument would collide with the greedy affix list. It summons
+  through vanilla's own public `SummonCommand.createEntity`, which carries the bounds, peaceful and
+  duplicate-UUID checks and finalises with `EntitySpawnReason.COMMAND` — a reason `EliteRoller`
+  refuses, so the natural roll cannot fire underneath and double-promote.
+- **An explicit affix list bypasses the caps, the exclusions and the EHP audit on purpose** — the
+  point of a test kit is to stand in front of the combinations the roller refuses — and every rule
+  it bypassed is **printed**, so the bypass is legible and the report doubles as a check that the
+  rule fires. Guarantee A is untouched either way: it lives in the damage funnel, which no affix
+  and no command can reach.
+- Two small seams were opened for the probes, both so the probe measures the shipped path rather
+  than a copy: `EliteLoot.rollDrops(level, rarity)` split out of `onDropAllDeathLoot` (the drop
+  path is player-kill gated, so a headless server can otherwise never see the table run), and
+  `ProgressionScore.providers()`.
+- `audit` **re-derives** the rules rather than calling back into `AffixBudget`. A probe that asked
+  the roller whether the roller was right could only ever agree with itself.
+
+### 10.8 Known gaps — everything §9's verification bar still owes
+
+1. **Guarantee A has never been measured.** `LivingEntityMixin` claims priority 1500 orders the
+   ceiling after Skill Proficiencies' multipliers and Archetypes' shapers. §6.4 requires that be
+   verified by **mixin bytecode export with all three mods installed**, not by reading priority
+   docs. `-Dmixin.debug.export=true` is already on in this repo's run configs.
+   **Guarantee A is false if the claim is wrong and nothing in the build would say so.**
+2. **§9.3's ceiling probe is not built** — every rarity × every offensive affix against a
+   full-health unarmoured player. It needs a player, so it needs either a fake-player harness or
+   the in-game pass.
+3. **§9.5's whole in-game client pass is unrun.** Nothing rendering-side is proven by compilation:
+   the glow being **occluded by a wall** — the entire point of §2.2 — the scale reading right, the
+   hitbox matching, and day spawning producing mobs that do not instantly burn. The jar is in
+   `../specialities/run/mods/` for the user's next dev-client launch.
+4. **The natural roll path has never fired.** Everything proven above enters through the command.
+   `Mob.finalizeSpawn` resolving and `EliteRoller` refusing `COMMAND` are both proven; the
+   `NATURAL` branch, the elite-chance curve at a real spawn and the score-at-a-position resolver
+   all need a player in the world.
+5. **Elite loot has never actually dropped.** The table is proven by `/escalation loot`; the
+   player-kill gate and `spawnAtLocation` are not.
+6. **`MobMixin` TAIL is the tail of `Mob`'s own body**, so a subclass's equipment, baby and
+   reinforcement work lands *after* the promotion. Nothing should collide — the modifiers are
+   id-keyed, the name is wrapped, health is topped from the multiplied max — but the case to check
+   in-game is a **baby zombie**, whose size and speed the subclass settles.
+7. **`Tuning` propagation (§9.2) is unproven**: a one-character edit moving `Tuning.class` and
+   nothing else. Cheap, and worth doing before the first release.
+8. **`/escalation score` cannot be exercised from the console** — it needs a player, and a
+   headless server has none.
+9. **The oversized-elite pathing consequence of §2.1 is unconfirmed.** Any visible upscale stops a
+   zombie fitting a 2-block door. It is accepted as counterplay, but it has not been seen.

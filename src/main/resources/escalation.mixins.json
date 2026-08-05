@@ -3,6 +3,13 @@
 	"package": "com.escalation.mixin",
 	"compatibilityLevel": "${java}",
 	"mixins": [
+		"elite.LivingEntityLootMixin",
+		"elite.LivingEntityMixin",
+		"elite.MobMixin",
+		"spawn.MobCategoryMixin",
+		"spawn.MobSunMixin",
+		"spawn.MonsterMixin",
+		"spawn.NaturalSpawnerMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

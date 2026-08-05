@@ -1,6 +1,11 @@
 package com.escalation;
 
+import com.escalation.config.ConfigEliteRules;
+import com.escalation.config.ConfigManager;
+import com.escalation.elite.EliteSystems;
 import com.escalation.platform.Platform;
+import com.escalation.progression.ProgressionScore;
+import com.escalation.spawn.TheHunt;
 
 import net.fabricmc.api.ModInitializer;
 
@@ -8,7 +13,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Common entrypoint. Scaffold only — it registers nothing yet.
+ * Common entrypoint — config, the score stack, the elite core, The Hunt and the test kit, in
+ * that order.
  *
  * <p><b>The mod id is permanent.</b> {@code escalation} names the mechanic, not the
  * marketing, so it survives any later change of the display name ("Advanced Difficulty
@@ -32,10 +38,37 @@ public class Escalation implements ModInitializer {
 
 	@Override
 	public void onInitialize() {
-		// Nothing is registered yet. The committed init ORDER, once the systems land, is a
-		// Tier-2 assertion: ConfigManager.load -> EliteStore.INSTANCE.initialize ->
-		// Net.INSTANCE.registerClientbound -> Affixes.register -> event wiring ->
-		// DifficultyCommands.register. One copy of that sequence, every loader.
-		LOGGER.info("{} loaded (scaffold; config dir {})", MOD_ID, Platform.INSTANCE.configDir());
+		// The committed init ORDER, and it is a Tier-2 assertion rather than a preference:
+		// ConfigManager.load -> the two plug-point installs -> EliteSystems (store, catalogue,
+		// listeners) -> TheHunt -> the command tree. One copy of that sequence, every loader.
+		//
+		// There is no `Net.INSTANCE.registerClientbound` step: design §6.5's clientbound payload
+		// is not built on this node, because EliteData syncs itself as an attachment. See
+		// docs/DESIGN.md §10.4 — the payload is written inside FabricEliteStore when the legacy
+		// nodes arrive, and it lands here in the order between the store and the catalogue.
+		//
+		// The config loads FIRST because everything downstream reads it. ConfigEliteRules and
+		// ProgressionScore are the elite core's two plug points: until they are installed it
+		// runs on its own built-in defaults (Gathering Clouds, score 0), which is a coherent
+		// game rather than a crash — but no world may load between the two states, so both
+		// installs happen here, in common init, before any world exists.
+		ConfigManager.load();
+		ConfigEliteRules.register();
+		ProgressionScore.register();
+
+		// The elite core: state store, then the affix catalogue, then its event wiring — in
+		// that order, and EliteSystems asserts it. It comes after both installs above so that
+		// nothing can observe the built-in fallbacks, and before TheHunt because a hunting mob
+		// may already be an elite.
+		EliteSystems.register();
+		TheHunt.register();
+
+		// Last, and it has to be: the command tree names the affix catalogue in its suggestion
+		// providers and the config in its `preset` branch, so every system it can reach must
+		// already be up. The callback itself fires per server, long after this returns.
+		EscalationCommands.register();
+
+		LOGGER.info("{} loaded (preset {}; config dir {})",
+				MOD_ID, ConfigManager.get().preset, Platform.INSTANCE.configDir());
 	}
 }

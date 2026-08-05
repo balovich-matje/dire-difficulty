@@ -3,6 +3,7 @@
 	"package": "com.escalation.client.mixin",
 	"compatibilityLevel": "${java}",
 	"client": [
+		"LivingEntityRendererMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1
