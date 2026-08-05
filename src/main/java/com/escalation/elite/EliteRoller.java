@@ -174,11 +174,21 @@ public final class EliteRoller {
 
 	/**
 	 * Writes the promotion: state first, then the rarity's three stat modifiers, then every
-	 * affix's own application, then the name tag.
+	 * affix's own application, then the gear, then the name tag.
 	 *
 	 * <p>State goes first because an affix's {@code onApply} may read it — and because if
 	 * anything below throws, the entity is at least consistently marked rather than
 	 * half-promoted with no record of it.
+	 *
+	 * <p><b>The name is generated before the state is written</b>, because the state is where
+	 * it lives: {@code EliteNames} is a pure function of the mob's UUID, its rarity and the
+	 * drawn affix ids, so it needs nothing this method has not already settled, and computing
+	 * it first means there is no second write to the store.
+	 *
+	 * <p><b>Gear comes after the affixes and before the name tag.</b> After, because an affix
+	 * may set an attribute the gear's own modifiers stack with and the order those are applied
+	 * in is vanilla's business, not this method's; before the name tag only because the name
+	 * tag is the last visible thing and reads better as the closing line.
 	 */
 	public static void promote(final ServerLevel level, final Mob mob, final Rarity rarity,
 			final List<Affix> affixes) {
@@ -188,7 +198,7 @@ public final class EliteRoller {
 			ids.add(affix.id());
 		}
 
-		EliteMob.promote(mob, rarity, ids);
+		EliteMob.promote(mob, rarity, ids, EliteNames.generate(mob, rarity, ids));
 
 		EliteAttributes.multiply(mob, Attributes.MAX_HEALTH, HEALTH_MODIFIER, rarity.maxHealthMultiplier());
 
@@ -212,6 +222,11 @@ public final class EliteRoller {
 			affix.onApply(level, mob, rarity);
 		}
 
-		EliteNameTag.apply(mob, rarity);
+		// Only into slots vanilla left empty, and only through setItemSlot/setDropChance — so
+		// vanilla's own rare-drop roll and its damaged-on-drop path apply untouched. See
+		// EliteGear for the measured ordering against a subclass's own equipment work.
+		EliteGear.equip(level, mob, rarity, level.getRandom());
+
+		EliteNameTag.apply(mob, rarity, EliteMob.nameOf(mob));
 	}
 }

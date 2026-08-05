@@ -5,6 +5,7 @@
 	"mixins": [
 		"elite.LivingEntityLootMixin",
 		"elite.LivingEntityMixin",
+		"elite.MobGearDropMixin",
 		"elite.MobMixin",
 		"spawn.MobCategoryMixin",
 		"spawn.MobSunMixin",

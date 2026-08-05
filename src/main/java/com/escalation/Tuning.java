@@ -374,6 +374,129 @@ public final class Tuning {
 	public static final int[] LOOT_BOOK_COST_MAX = {12, 20, 28, 30};
 
 	// =================================================================================
+	// ELITE NAMES — the fantasy-name generator's shape dials.
+	//
+	// EliteNames holds the WORD BANKS; this holds every number the generator reads. Same
+	// split as EliteLoot's and Preset's: data over there, tuning here. A name is
+	// "<Fantasy Name> (<rarity> <mob type>)" — the fantasy half is a literal string
+	// generated once at promotion and stored in EliteData, the parenthesised half is
+	// rebuilt from lang keys at display time so it translates.
+	// =================================================================================
+
+	/**
+	 * Relative weights of the three word sources when a name's pool is assembled: the elite's
+	 * own drawn affixes, its mob family, and the generic bank. Affix-heaviest on purpose —
+	 * "semi-related to the affixes" is the requirement, so a Vampiric elite should usually
+	 * read as one without the name simply spelling the affix list out a second time.
+	 */
+	public static final int NAME_AFFIX_WEIGHT = 3;
+
+	public static final int NAME_FAMILY_WEIGHT = 2;
+
+	public static final int NAME_GENERIC_WEIGHT = 1;
+
+	/**
+	 * Chance a name comes out as a single compound word ({@code Grave} + {@code bane} =
+	 * "Gravebane") rather than as two words ("Grave Lord"). Rolled against the same uniform as
+	 * {@link #NAME_DOMAIN_CHANCE}, so the two shapes and the plain one always sum to 1.
+	 */
+	public static final double NAME_COMPOUND_CHANCE = 0.32;
+
+	/** Chance a name takes the grander "&lt;Title&gt; of &lt;Domain&gt;" shape. */
+	public static final double NAME_DOMAIN_CHANCE = 0.18;
+
+	/** Lowest rarity TIER (1..4) the "of &lt;Domain&gt;" shape may roll on. 2 is Rare. */
+	public static final int NAME_DOMAIN_FROM_TIER = 2;
+
+	/**
+	 * Chance a Legendary name carries a trailing ", the &lt;Epithet&gt;". Rarity-scaled
+	 * grandeur, and the only place it is applied: a two-part title on a common spawn stops
+	 * reading as an event.
+	 */
+	public static final double NAME_EPITHET_CHANCE_LEGENDARY = 0.45;
+
+	/** The same, at Epic. Uncommon and Rare never carry one. */
+	public static final double NAME_EPITHET_CHANCE_EPIC = 0.12;
+
+	// =================================================================================
+	// ELITE GEAR — what an elite spawns wearing, and what may drop off it.
+	//
+	// EliteGear holds the SHAPE and the item tables; this holds every number. All of it is
+	// delivered through vanilla's own setItemSlot / setDropChance, so vanilla's rare-drop
+	// roll and its damaged-on-drop path apply unchanged — see EliteGear's class javadoc for
+	// the two lines of vanilla source that guarantee it.
+	//
+	// The MATERIAL LADDER, one index shared by both halves of a set:
+	//
+	//   0 leather / wooden   1 copper   2 gold   3 chainmail / stone
+	//   4 iron               5 diamond  6 netherite
+	//
+	// Indices 0..5 are vanilla's OWN numbering from Mob.getEquipmentForSlot(slot, type), so
+	// the armour half is vanilla's table rather than a copy of it. Index 6 is netherite,
+	// which that method returns null for; EliteGear supplies those four pieces itself.
+	// =================================================================================
+
+	/** Chance a melee elite with an empty main hand is given a weapon, per rarity. */
+	public static final double[] GEAR_WEAPON_CHANCE = {0.55, 0.75, 0.90, 1.00};
+
+	/** Chance EACH empty armour slot is filled, per rarity. Rolled independently per slot. */
+	public static final double[] GEAR_ARMOR_PIECE_CHANCE = {0.30, 0.50, 0.70, 0.90};
+
+	/**
+	 * Weapon material ladder per rarity, as a weighted draw: a repeated index is a heavier
+	 * one. Legendary is netherite and only netherite — the design's own example.
+	 */
+	public static final int[][] GEAR_WEAPON_TIERS = {
+		{2, 3, 4},          // Uncommon:  gold / stone / iron
+		{3, 4, 4, 5},       // Rare:      stone / iron / iron / diamond
+		{4, 5, 5},          // Epic:      iron / diamond / diamond
+		{6},                // Legendary: netherite
+	};
+
+	/** Armour material ladder per rarity. Netherite is possible at Legendary, never certain. */
+	public static final int[][] GEAR_ARMOR_TIERS = {
+		{1, 2, 3},          // Uncommon:  copper / gold / chainmail
+		{2, 3, 4, 4},       // Rare:      gold / chainmail / iron / iron
+		{4, 4, 5},          // Epic:      iron / iron / diamond
+		{5, 5, 6},          // Legendary: diamond / diamond / netherite
+	};
+
+	/** Chance a drawn weapon is an axe rather than a sword. Same material either way. */
+	public static final double GEAR_AXE_CHANCE = 0.30;
+
+	/** Chance the weapon is enchanted, per rarity. Legendary always is. */
+	public static final double[] GEAR_WEAPON_ENCHANT_CHANCE = {0.0, 0.15, 0.50, 1.00};
+
+	/** Chance an armour piece is enchanted, per rarity. Deliberately far below the weapon's. */
+	public static final double[] GEAR_ARMOR_ENCHANT_CHANCE = {0.0, 0.05, 0.20, 0.45};
+
+	/**
+	 * Enchanting-table cost handed to vanilla's own roller, per rarity — the numbers a table
+	 * would use at that level, so a Legendary's weapon reads as a near-max table roll.
+	 */
+	public static final int[] GEAR_ENCHANT_COST_MIN = {1, 5, 14, 22};
+
+	public static final int[] GEAR_ENCHANT_COST_MAX = {5, 14, 24, 30};
+
+	/**
+	 * Drop chance for gear this mod equipped, per rarity. Vanilla's own default is
+	 * {@code DropChances.DEFAULT_EQUIPMENT_DROP_CHANCE = 0.085F}; the ladder starts there and
+	 * TAPERS as the gear gets better, because the same 8.5% on an enchanted netherite sword is
+	 * a different economy from 8.5% on an iron one.
+	 */
+	public static final double[] GEAR_DROP_CHANCE = {0.085, 0.075, 0.060, 0.050};
+
+	/**
+	 * Hard ceiling on any drop chance this mod writes.
+	 *
+	 * <p>Not a taste dial. {@code DropChances.PRESERVE_ITEM_DROP_CHANCE_THRESHOLD} is
+	 * {@code 1.0F}, and a slot above it is <b>preserved</b>: vanilla then drops it every time
+	 * AND skips the {@code setDamageValue} line that is the whole "no full-durability
+	 * windfalls" rule. Staying below this is what keeps that rule structural.
+	 */
+	public static final double GEAR_DROP_CHANCE_MAX = 0.95;
+
+	// =================================================================================
 	// AFFIX CATALOGUE — docs/DESIGN.md §3.1
 	//
 	// One block per affix: its point cost first, then its own numbers. The affix classes

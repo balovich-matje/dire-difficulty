@@ -29,13 +29,20 @@ import net.minecraft.network.FriendlyByteBuf;
  * <p><b>What crosses the wire.</b> The client needs rarity for the glow and the nameplate,
  * and scale needs nothing at all ({@code Attributes.SCALE} is syncable and drives both model
  * and hitbox through vanilla). The whole record is written rather than a projection, because
- * a projection is a second format to keep in step and none of these five fields is a secret.
+ * a projection is a second format to keep in step and none of these six fields is a secret.
+ *
+ * <p><b>The generated name is stored, not re-derived.</b> {@link EliteNames} is deterministic
+ * from the entity's own UUID, so re-deriving it on read would give the same string — but only
+ * for as long as the word banks never change. Storing it means an elite keeps the name it was
+ * born with across a mod update that adds a word, which is the difference between a name and a
+ * hash. It holds the FANTASY half only: the translatable "(rarity mob type)" suffix is rebuilt
+ * at display time by {@link EliteNameTag}, so this record carries no English.
  * {@link #write} / {@link #read} are spelled in {@code FriendlyByteBuf} primitives on purpose:
  * that is the oldest buffer type that exists on every port target, so the format survives the
  * 1.20.5 payload-stack boundary unchanged.
  */
 public record EliteData(int rarityOrdinal, List<String> affixes, boolean escapistUsed,
-		int splitGeneration, boolean noElite) {
+		int splitGeneration, boolean noElite, String name) {
 
 	/** {@link #rarityOrdinal} for an entity that carries state but is not an elite. */
 	public static final int NOT_ELITE = -1;
@@ -46,7 +53,14 @@ public record EliteData(int rarityOrdinal, List<String> affixes, boolean escapis
 	 * promotion candidate.
 	 */
 	public static final EliteData SUPPRESSED =
-			new EliteData(NOT_ELITE, Collections.emptyList(), false, 0, true);
+			new EliteData(NOT_ELITE, Collections.emptyList(), false, 0, true, "");
+
+	/**
+	 * The name of an elite written by a build that had none — {@code optionalFieldOf} default.
+	 * Every reader treats it as "fall back to the mob's own name", so an iteration-1 world
+	 * loads without a migration step and its elites simply have no fantasy name.
+	 */
+	public static final String NO_NAME = "";
 
 	public static final Codec<EliteData> CODEC = RecordCodecBuilder.create(i -> i.group(
 			Codec.INT.optionalFieldOf("rarity", NOT_ELITE).forGetter(EliteData::rarityOrdinal),
@@ -54,16 +68,26 @@ public record EliteData(int rarityOrdinal, List<String> affixes, boolean escapis
 					.forGetter(EliteData::affixes),
 			Codec.BOOL.optionalFieldOf("escapist_used", false).forGetter(EliteData::escapistUsed),
 			Codec.INT.optionalFieldOf("split_generation", 0).forGetter(EliteData::splitGeneration),
-			Codec.BOOL.optionalFieldOf("no_elite", false).forGetter(EliteData::noElite))
+			Codec.BOOL.optionalFieldOf("no_elite", false).forGetter(EliteData::noElite),
+			Codec.STRING.optionalFieldOf("name", NO_NAME).forGetter(EliteData::name))
 			.apply(i, EliteData::new));
 
-	/** Defensive copy, so a caller cannot mutate a list this record already published. */
+	/**
+	 * Defensive copy, so a caller cannot mutate a list this record already published, and a
+	 * null name normalised to {@link #NO_NAME} so no reader has to null-check a String.
+	 */
 	public EliteData {
 		affixes = List.copyOf(affixes);
+		name = name == null ? NO_NAME : name;
 	}
 
-	public static EliteData of(final Rarity rarity, final List<String> affixes) {
-		return new EliteData(rarity.ordinal(), affixes, false, 0, false);
+	public static EliteData of(final Rarity rarity, final List<String> affixes, final String name) {
+		return new EliteData(rarity.ordinal(), affixes, false, 0, false, name);
+	}
+
+	/** True when this elite carries a generated fantasy name. */
+	public boolean hasName() {
+		return !this.name.isEmpty();
 	}
 
 	/** {@code null} when this entity is not an elite, or carries a rarity a newer build wrote. */
@@ -76,22 +100,30 @@ public record EliteData(int rarityOrdinal, List<String> affixes, boolean escapis
 	}
 
 	public EliteData withEscapistUsed() {
-		return new EliteData(this.rarityOrdinal, this.affixes, true, this.splitGeneration, this.noElite);
+		return new EliteData(this.rarityOrdinal, this.affixes, true, this.splitGeneration, this.noElite,
+				this.name);
 	}
 
 	public EliteData withSplitGeneration(final int generation) {
-		return new EliteData(this.rarityOrdinal, this.affixes, this.escapistUsed, generation, this.noElite);
+		return new EliteData(this.rarityOrdinal, this.affixes, this.escapistUsed, generation, this.noElite,
+				this.name);
 	}
 
 	public EliteData withNoElite() {
-		return new EliteData(this.rarityOrdinal, this.affixes, this.escapistUsed, this.splitGeneration, true);
+		return new EliteData(this.rarityOrdinal, this.affixes, this.escapistUsed, this.splitGeneration, true,
+				this.name);
 	}
 
 	/**
 	 * Portable wire encoding. Byte-identical to what the equivalent {@code ByteBufCodecs}
 	 * composition would produce — var-int, then a var-int-counted list of UTF-8 strings, then
-	 * two bytes and a var-int — because a client and a server built from different nodes of
-	 * the same Minecraft version have to stay compatible.
+	 * two bytes, a var-int and one more string — because a client and a server built from
+	 * different nodes of the same Minecraft version have to stay compatible.
+	 *
+	 * <p>The name is written LAST, after every field iteration 1 wrote, so the encoding grew
+	 * by an append rather than by a reshuffle. Both sides are this mod, so the format is not
+	 * negotiated — but keeping additions at the tail is what makes a future
+	 * {@code readableBytes() > 0} tolerance possible if it ever has to be.
 	 */
 	public static void write(final FriendlyByteBuf buf, final EliteData data) {
 		buf.writeVarInt(data.rarityOrdinal());
@@ -104,6 +136,7 @@ public record EliteData(int rarityOrdinal, List<String> affixes, boolean escapis
 		buf.writeBoolean(data.escapistUsed());
 		buf.writeVarInt(data.splitGeneration());
 		buf.writeBoolean(data.noElite());
+		buf.writeUtf(data.name());
 	}
 
 	public static EliteData read(final FriendlyByteBuf buf) {
@@ -115,6 +148,7 @@ public record EliteData(int rarityOrdinal, List<String> affixes, boolean escapis
 			affixes.add(buf.readUtf());
 		}
 
-		return new EliteData(rarity, affixes, buf.readBoolean(), buf.readVarInt(), buf.readBoolean());
+		return new EliteData(rarity, affixes, buf.readBoolean(), buf.readVarInt(), buf.readBoolean(),
+				buf.readUtf());
 	}
 }

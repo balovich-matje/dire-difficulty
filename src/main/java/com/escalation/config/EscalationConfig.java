@@ -93,6 +93,37 @@ public final class EscalationConfig {
 	public boolean elitePlate = true;
 
 	// =====================================================================================
+	// Gear drops. Server-authoritative and read at the moment a mob dies, so both toggles
+	// take effect on mobs that are already in the world — nothing is stamped at spawn time
+	// and nothing has to be re-rolled for a change to apply.
+	//
+	// NOT preset-governed, deliberately and by instruction: whether worn equipment drops is
+	// an economy decision, not a difficulty one. Hell on Earth arms its elites to the teeth
+	// either way; whether you get to keep what they were wearing is a separate question, and
+	// a preset that reached across and answered it would be exactly the hidden override
+	// layer §8 forbids.
+	// =====================================================================================
+
+	/**
+	 * Let an ELITE's worn equipment drop. Off means an elite never drops what it is wearing;
+	 * its rarity loot table is untouched either way, because that is a different system.
+	 *
+	 * <p>Netherite armour never drops regardless of this setting — that rule is structural,
+	 * not a knob.
+	 */
+	public boolean eliteGearDrops = true;
+
+	/**
+	 * Let ANY mob's naturally spawned equipment drop — the master switch, elites included. Off
+	 * suppresses the whole vanilla gear-drop channel.
+	 *
+	 * <p>Equipment a mob PICKED UP is never suppressed by either toggle. Vanilla marks a
+	 * picked-up slot as a guaranteed drop, and that item is something a player threw or lost;
+	 * no difficulty setting should be able to eat it.
+	 */
+	public boolean allMobGearDrops = true;
+
+	// =====================================================================================
 	// PRESET-GOVERNED FIELDS START HERE.
 	//
 	// Every field below is named in Preset.GOVERNED_FIELDS and written by Preset.stamp.

@@ -2,10 +2,13 @@ package com.escalation;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.OptionalDouble;
+import java.util.Set;
+import java.util.UUID;
 import java.util.function.Predicate;
 
 import com.escalation.affix.Affix;
@@ -16,8 +19,10 @@ import com.escalation.config.ConfigManager;
 import com.escalation.config.EscalationConfig;
 import com.escalation.config.Preset;
 import com.escalation.elite.EliteData;
+import com.escalation.elite.EliteGear;
 import com.escalation.elite.EliteLoot;
 import com.escalation.elite.EliteMob;
+import com.escalation.elite.EliteNames;
 import com.escalation.elite.EliteRoller;
 import com.escalation.elite.EliteRules;
 import com.escalation.elite.Rarity;
@@ -132,6 +137,7 @@ public final class EscalationCommands {
 							.then(spawnCommand(registries))
 							.then(presetCommand())
 							.then(auditCommand())
+							.then(namesCommand(registries))
 							.then(lootCommand()));
 
 			// The alias is a REDIRECT rather than a second tree: one set of nodes, so the two
@@ -229,6 +235,14 @@ public final class EscalationCommands {
 					String.format(Locale.ROOT, "%.2f", mob.getScale())), false);
 			source.sendSuccess(() -> Component.translatable(KEY + "info.affixes",
 					data.affixes().isEmpty() ? "-" : String.join(", ", data.affixes())), false);
+			// The generated name RAW, next to the composed one the mob is wearing: the header
+			// above prints mob.getName(), which is the translated "Grave Lord (Legendary
+			// Zombie)". Printing the stored literal too is what tells a stored name apart from
+			// a name tag that happens to look right.
+			source.sendSuccess(() -> Component.translatable(KEY + "info.name",
+					data.hasName() ? data.name() : "-", EliteNames.familyOf(mob)), false);
+			source.sendSuccess(() -> Component.translatable(KEY + "info.gear",
+					EliteGear.describe(mob)), false);
 			source.sendSuccess(() -> Component.translatable(KEY + "info.flags",
 					String.valueOf(data.escapistUsed()), String.valueOf(data.splitGeneration()),
 					String.format(Locale.ROOT, "%.2f", ehpIndex(EliteMob.affixes(mob), rarity))), false);
@@ -504,6 +518,84 @@ public final class EscalationCommands {
 		}
 
 		return failureCount == 0 ? 1 : 0;
+	}
+
+	// --- /escalation names <entity> <rarity> [count] ---
+
+	/**
+	 * The name generator's probe: draw {@code count} names for one mob type at one rarity,
+	 * each with its own freshly rolled affix set, and print them.
+	 *
+	 * <p>It exists for the same reason {@code audit} does. A name is drawn from a weighted
+	 * merge of three word banks and one of four shapes, so "does it produce varied names that
+	 * relate to the affixes" is not a question playing the game can answer in an afternoon. It
+	 * also reports the DISTINCT count, because a generator that returns one name a thousand
+	 * times and a generator that returns a thousand names print the same first line otherwise.
+	 *
+	 * <p>Nothing is spawned. {@code EliteNames.generate} is called with a random UUID and the
+	 * type's own family, which is exactly what the promotion passes it.
+	 */
+	private static LiteralArgumentBuilder<CommandSourceStack> namesCommand(
+			final CommandBuildContext registries) {
+		return Commands.literal("names")
+				.then(Commands.argument("entity", ResourceArgument.resource(registries, Registries.ENTITY_TYPE))
+						.suggests((context, builder) -> SharedSuggestionProvider.suggest(monsterIds(), builder))
+						.then(Commands.argument("rarity", StringArgumentType.word())
+								.suggests((context, builder) -> SharedSuggestionProvider.suggest(
+										rarityNames(), builder))
+								.executes(context -> names(context, 8))
+								.then(Commands.argument("count", IntegerArgumentType.integer(1, 200))
+										.executes(context -> names(context,
+												IntegerArgumentType.getInteger(context, "count"))))));
+	}
+
+	private static int names(final CommandContext<CommandSourceStack> context, final int count)
+			throws CommandSyntaxException {
+		CommandSourceStack source = context.getSource();
+		ServerLevel level = source.getLevel();
+		String rarityArg = StringArgumentType.getString(context, "rarity");
+		Rarity rarity = rarityByName(rarityArg);
+
+		if (rarity == null) {
+			source.sendFailure(Component.translatable(KEY + "spawn.unknownRarity", rarityArg,
+					String.join(", ", rarityNames())));
+			return 0;
+		}
+
+		Holder.Reference<EntityType<?>> type = ResourceArgument.getSummonableEntityType(context, "entity");
+		Entity prototype = type.value().create(level, EntitySpawnReason.COMMAND);
+
+		if (!(prototype instanceof Mob mob)) {
+			source.sendFailure(Component.translatable(KEY + "spawn.notAMob",
+					type.key().identifier().toString()));
+
+			if (prototype != null) {
+				prototype.discard();
+			}
+
+			return 0;
+		}
+
+		EliteRules rules = EliteRules.active();
+		RandomSource random = level.getRandom();
+		String family = EliteNames.familyOf(mob);
+		Set<String> distinct = new LinkedHashSet<>();
+
+		for (int i = 0; i < count; i++) {
+			List<Affix> drawn = AffixBudget.roll(mob, rarity, rules, random);
+			String name = EliteNames.generate(UUID.randomUUID(), family, rarity, idsOf(drawn));
+
+			distinct.add(name);
+			source.sendSuccess(() -> Component.translatable(KEY + "names.row", name,
+					drawn.isEmpty() ? "-" : String.join(" ", idsOf(drawn))), false);
+		}
+
+		mob.discard();
+
+		int unique = distinct.size();
+		source.sendSuccess(() -> Component.translatable(KEY + "names.done", count, rarity.name(),
+				family, unique, EliteNames.affixBankCount(), EliteNames.familyBankCount()), true);
+		return 1;
 	}
 
 	// --- /escalation loot <rarity> <count> ---

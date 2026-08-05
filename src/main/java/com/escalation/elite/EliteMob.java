@@ -120,11 +120,23 @@ public final class EliteMob {
 	}
 
 	/**
+	 * The generated fantasy name, or the empty string for anything that has none — a
+	 * non-elite, or an elite promoted by a build that predates the name generator.
+	 */
+	public static String nameOf(final Entity target) {
+		EliteData data = data(target);
+		return data == null ? EliteData.NO_NAME : data.name();
+	}
+
+	/**
 	 * Writes the promotion. Called once from {@code EliteRoller}, after the affix set has
 	 * passed the caps, the exclusions and the EHP audit — never from an affix.
+	 *
+	 * @param name the generated fantasy name, already drawn from the elite's own seed
 	 */
-	public static void promote(final Mob mob, final Rarity rarity, final List<String> affixIds) {
-		EliteStore.INSTANCE.set(mob, EliteData.of(rarity, affixIds));
+	public static void promote(final Mob mob, final Rarity rarity, final List<String> affixIds,
+			final String name) {
+		EliteStore.INSTANCE.set(mob, EliteData.of(rarity, affixIds, name));
 		EliteStore.INSTANCE.setTimers(mob, EliteTimers.FRESH);
 	}
 }

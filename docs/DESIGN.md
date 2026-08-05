@@ -1280,3 +1280,247 @@ for players who already run one. Deliberately NOT built now, for two reasons:
 The data it would need is already synced and already read: `EliteClientState.eliteOf(entity)`
 answers on the client, and `Affix.nameKey()` gives the labels. A plugin would be a new file and no
 change to anything in `elite/`, `platform/` or `client/`.
+
+---
+
+## 12. As built — iteration 1.2: names, gear, gear-drop config (2026-08-05)
+
+Three features on user spec, landed after the glow/plate pass. **This section outranks §11 the
+way §11 outranks §10.** Every Minecraft API named below was read off the decompiled 26.2
+sources on this machine (`minecraft-common-043a8b3edf-26.2-sources.jar`), per the standing
+instruction; the line numbers given are that jar's.
+
+### 12.1 Fantasy names
+
+Every elite is named at promotion. The display form is
+**`<Fantasy Name> (<Rarity> <Mob type>)`** — "Grave Lord (Legendary Zombie)".
+
+**The two halves are stored and resolved differently, and that split is the design.**
+
+| Half | Form | Where it lives |
+|---|---|---|
+| `Grave Lord` | a LITERAL string | generated once, stored in `EliteData.name` |
+| `(Legendary Zombie)` | a `translatable` component, rebuilt every time it is displayed | `elite.escalation.name` + this mod's four `elite.escalation.rarity.*` keys + the mob's own `EntityType.getDescription()` |
+
+Fantasy names are not translated in any game that has them, and a name assembled from lang keys
+would need one key per word and would still come out in English word order everywhere else. The
+suffix is the opposite case: it is two ordinary nouns, so it translates, and building it from
+the mob's own description means this mod ships **no string for any of the several hundred mob
+types it can promote**. Measured, straight out of `/data get`:
+
+```
+{translate: "elite.escalation.name",
+ with: ["Grave Lord", {translate: "elite.escalation.rarity.legendary"},
+                      {translate: "entity.minecraft.zombie"}],
+ color: "#FFAA00"}
+```
+
+**Casing is a lang value, not a code decision.** `elite.escalation.rarity.*` ships capitalised
+("Legendary") so the suffix reads consistently against vanilla's own capitalised entity names.
+Lower-casing the entity half in code is not an option that exists — `getDescription()` is a
+component the CLIENT resolves, so case-folding it server-side would first have to bake the
+server's locale into a stored name. A server that wants "(legendary Zombie)" edits one lang
+value.
+
+**Semi-related to the affixes, by weighted merge.** `elite/EliteNames` holds three word banks —
+per-affix (all 25 ids), per-mob-family (12), and a generic bank — and one elite's pool is the
+three merged at `Tuning.NAME_AFFIX_WEIGHT` / `NAME_FAMILY_WEIGHT` / `NAME_GENERIC_WEIGHT`
+(3/2/1). A name drawn purely from the family would say nothing about the fight; a name drawn
+purely from the affixes would spell out a list the plate already prints. At 3/2/1 a Vampiric
+zombie is likeliest to be a "Blood" something, then a "Grave" something, then a "Dread"
+something — so the name *suggests* the fight without being a second read-out.
+
+Four shapes, rarity-scaled for grandeur:
+
+| Shape | Example | Gate |
+|---|---|---|
+| `<Prefix> <Title>` | Grave Lord | any |
+| `<Prefix><tail>` compound | Bloodwind | any, `NAME_COMPOUND_CHANCE` |
+| `<Title> of <Domain>` | Summoner of the Gloom | tier ≥ `NAME_DOMAIN_FROM_TIER` (Rare) |
+| `…, the <Epithet>` | Hoar Devourer, the Iron-Willed | Epic 12%, **Legendary 45%**, never below |
+
+**Determinism.** Seeded from the entity's own UUID mixed with the rarity and the drawn affix
+ids, through a `RandomSource` of its own — never the level's, so two elites promoted in the same
+tick cannot correlate. Storage is what actually guarantees stability across a reload; seeding
+this way is what makes the generator *testable* and what keeps a name from drifting if the
+banks ever grow. **Measured**: one wither skeleton promoted in boot A, world saved, server
+stopped, boot B read `Stonechill (Legendary Wither Skeleton)` and the identical equipment set
+back off disk.
+
+**Backward compatible with no migration.** `name` is `Codec.STRING.optionalFieldOf("name", "")`
+and is written LAST on the wire, so an iteration-1.1 elite already in a world loads clean and
+simply has no fantasy name; `EliteNameTag` falls back to `elite.escalation.name.plain`, i.e.
+just the suffix. Observed in the smoke run — a leftover elite from the previous session's world
+printed `name: -` and rendered normally.
+
+**One source, both surfaces.** `EliteNameTag.compose` is the only place the display name is
+built. The server stamps it as the custom name; `ElitePlate` draws `entity.getName()`, so the
+plate and the in-world nameplate cannot disagree and the plate needed **no change at all**. The
+tag is still set WITHOUT `setCustomNameVisible`, unchanged from iteration 1: vanilla then draws
+it only for the entity under the crosshair, which is the difference between "I can identify
+this thing" and a screen of floating labels during a raid.
+
+**One deviation from §10.5's point 10, and it is the point being reversed on instruction.**
+That entry argued against a rarity WORD because four new keys risk rendering as
+`elite.escalation.rarity.legendary` over a mob's head. The keys now ship, in the same file as
+the 25 affix names that already had exactly that exposure, so the risk is the one the mod
+already carries.
+
+### 12.2 Elite gear
+
+`elite/EliteGear`. Melee-capable elites spawn armed and armoured, on a rarity ladder.
+
+**Everything goes through `Mob.setItemSlot` and `Mob.setDropChance`, and then stops.** Nothing
+in the feature spawns an item, rolls a drop or damages a stack — that is what buys vanilla's own
+drop behaviour rather than approximating it. The two lines that matter, from
+`Mob.dropCustomDeathLoot` (`Mob.java:887-912`):
+
+```java
+if (!itemStack.isEmpty() && !EnchantmentHelper.has(itemStack, PREVENT_EQUIPMENT_DROP)
+        && (killedByPlayer || preserve) && this.random.nextFloat() < dropChance) {
+    if (!preserve && itemStack.isDamageableItem()) {
+        itemStack.setDamageValue(itemStack.getMaxDamage()
+                - this.random.nextInt(1 + this.random.nextInt(Math.max(itemStack.getMaxDamage() - 3, 1))));
+    }
+```
+
+So: player-kill gated, rare, and **damaged on the way out** — the "no full-durability windfalls"
+rule is vanilla's line, not a reimplementation of it.
+
+**The ladder** (`Tuning`, one shared material index: 0 leather/wood, 1 copper, 2 gold,
+3 chainmail/stone, 4 iron, 5 diamond, 6 netherite). Indices 0–5 are **vanilla's own numbering**
+from `Mob.getEquipmentForSlot(slot, type)` (`Mob.java:988`), so the armour half is vanilla's
+table rather than a copy of it; that method returns `null` for anything above 5, which is why
+netherite is this mod's own four-entry row.
+
+| Rarity | Weapon chance | Weapon tiers | Armour chance/slot | Armour tiers | Weapon enchant | Drop chance |
+|---|---|---|---|---|---|---|
+| Uncommon | 0.55 | gold / stone / iron | 0.30 | copper / gold / chainmail | — | 0.085 |
+| Rare | 0.75 | stone / iron ×2 / diamond | 0.50 | gold / chainmail / iron ×2 | 0.15 | 0.075 |
+| Epic | 0.90 | iron / diamond ×2 | 0.70 | iron ×2 / diamond | 0.50 | 0.060 |
+| Legendary | 1.00 | **netherite** | 0.90 | diamond ×2 / **netherite** | **1.00** | 0.050 |
+
+A repeated entry is a heavier draw. `GEAR_AXE_CHANCE = 0.30` picks an axe over a sword at the
+same material. Enchantments come from **vanilla's own roller** —
+`EnchantmentHelper.enchantItem(random, stack, cost, registryAccess, IN_ENCHANTING_TABLE)`, the
+same call `EliteLoot` uses for its books, at `GEAR_ENCHANT_COST_MIN/MAX` per rarity — so the
+level-appropriate selection, the multi-enchantment chance and the incompatibility filtering are
+all vanilla's, and restricting to the table's own set is what keeps curses and treasure
+enchantments off gear that is going to drop. A measured Legendary: Sharpness 3 / Knockback 2 /
+Sweeping Edge 3 on a netherite sword.
+
+The drop-chance ladder **starts at vanilla's own default** (`DropChances
+.DEFAULT_EQUIPMENT_DROP_CHANCE = 0.085F`) and tapers, because the same 8.5% on an enchanted
+netherite sword is a different economy from 8.5% on an iron one.
+
+**The two hard rules.**
+
+1. **Netherite armour never drops.** Drop chance `0.0F` on those slots at equip time, and
+   re-asserted at death for any netherite armour that reached the mob another way. The weapon
+   is deliberately not covered — the spec says the weapon may drop, and a damaged netherite
+   sword at 5% is a trophy rather than an economy. **Measured**, `/data get … drop_chances`:
+   `{mainhand: 0.05f, head: 0.05f, chest: 0.05f, legs: 0.0f}` on a Legendary zombie whose legs
+   were netherite; `{head: 0.0f, feet: 0.05f, chest: 0.05f, legs: 0.05f}` on a Legendary
+   skeleton whose helmet was.
+2. **No full-durability windfalls.** `Tuning.GEAR_DROP_CHANCE_MAX = 0.95` is not a taste dial:
+   `DropChances.PRESERVE_ITEM_DROP_CHANCE_THRESHOLD` is `1.0F`, and a slot above it is
+   *preserved*, which is exactly the branch that drops every time AND skips the
+   `setDamageValue` line. Nothing in this mod can write one.
+
+**Eligibility is a tag, and it has to be.** `escalation:elite_gear` ships vanilla's humanoid
+hostile set (zombie family, skeleton family, piglins, illagers). The question the tag answers is
+"does this mob RENDER armour and a held item", and **no runtime property exposes it** — a
+creeper accepts a netherite chestplate, takes the armour points and draws nothing, which is a
+hidden buff with no tell. Tag-driven so a pack can extend it without a code change; an absent
+tag resolves empty, so deleting it turns the feature off rather than breaking it. **Measured**:
+a Legendary creeper came out bare.
+
+**Weapons go to melee mobs only** — `Eligibility.melee(mob) && !Eligibility.ranged(mob)`. A
+skeleton, a pillager and a drowned each have their own weapon and their own attack goal keyed to
+it. They still get armour. **Measured**: a Legendary skeleton came out
+`mainhand=Bow@0.085, head=Netherite Helmet@0.000, chest=Diamond Chestplate+1@0.050, …`.
+
+**Only empty slots are filled, and that is the whole ordering argument.** The promotion runs at
+the TAIL of `Mob`'s *own* `finalizeSpawn`, i.e. inside the `super` call a subclass makes before
+its own equipment work (`Zombie.java:449` then `:485`; `AbstractSkeleton.java:118` then `:120`).
+Both directions were read rather than assumed:
+
+- `Mob.populateDefaultEquipmentSlots` fills a slot only `if (itemStack.isEmpty())`
+  (`Mob.java:979`), so **vanilla never overwrites armour this mod placed**.
+- `AbstractSkeleton.populateDefaultEquipmentSlots` sets `MAINHAND` to a bow
+  **unconditionally** (`AbstractSkeleton.java:111`), so a skeleton keeps its bow whatever this
+  mod does — which is the wanted behaviour anyway, and the `ranged` test above stops the
+  pointless stack being made in the first place. A wither skeleton's stone sword is the same
+  vanilla line and was observed doing exactly that.
+
+**No interaction with elite loot, checked rather than assumed.** `EliteLoot` injects at the TAIL
+of `LivingEntity.dropAllDeathLoot` and adds items from its own whitelist; equipment drops inside
+`Mob.dropCustomDeathLoot`, which that method calls earlier. Neither reads or writes the other's
+items. **Gear drops are in addition to the rarity loot table, with no double handling in either
+direction.**
+
+### 12.3 The two gear-drop toggles
+
+| Config field | Default | Effect when off |
+|---|---|---|
+| `eliteGearDrops` | `true` | an elite never drops its worn equipment |
+| `allMobGearDrops` | `true` | **no** mob drops naturally spawned worn equipment, elite or not |
+
+Both are in the Cloth screen's Elites tab, next to `elitePlate`, and **neither is
+preset-governed** — whether worn equipment drops is an economy decision, not a difficulty one.
+Hell on Earth arms its elites either way.
+
+**The hook is `Mob.dropCustomDeathLoot` at HEAD**, `mixin/elite/MobGearDropMixin`. That method is
+where worn equipment drops in 26.2 — the loop over `EquipmentSlot.VALUES`, the
+`dropChance != 0.0F` gate, the `killedByPlayer || preserve` gate, the `PREVENT_EQUIPMENT_DROP`
+check, the looting adjustment through `EnchantmentHelper.processEquipmentDropChance` and the
+`setDamageValue` line all live inside it, and nothing above or below it touches equipment.
+
+**It suppresses by zeroing vanilla's own drop chance, not by cancelling the loop.** Everything
+else that loop does stays exactly as vanilla wrote it, and a cancel would additionally swallow
+`super.dropCustomDeathLoot`, which is `LivingEntity`'s and is not this feature's business.
+**Measured** in the transformed class (`-Dmixin.debug.export`, `javap -c`): the handler is
+`invokespecial` at **offset 0**, ahead of the `super` call at offset 12 and the loop at 15.
+
+**Preserved slots are never touched, and that is a safety rule.** A drop chance above 1.0 means
+the mob *picked that item up* — `Mob.equipItemIfPossible` calls `setItemSlotAndDropWhenKilled`,
+which calls `setGuaranteedDrop` (`Mob.java:553-563`). Suppressing those would eat items a player
+threw or lost, which no difficulty setting should be able to do. It is also what makes toggle
+(b) mean exactly what it says: no *naturally spawned* gear drops, while gear the world handed
+the mob still comes back.
+
+### 12.4 Verification
+
+| Claim | Evidence |
+|---|---|
+| Build green | `./gradlew build`, zero errors, zero warnings |
+| Headless dedicated server boots clean | `Done (0.187s)`, **zero ERROR lines, zero WARN lines, zero mixin errors**, clean `stop`, **exit 0** — with the new mixin in the config under `injectors.defaultRequire: 1` |
+| The new injector resolves where it claims to | `javap -c` on the exported `Mob`: `handler$…$escalation$gearDropRules` at offset **0** of `dropCustomDeathLoot`, before `super` and before the equipment loop |
+| Name end to end | `/escalation spawn` + `/data get … CustomName` → `{translate: "elite.escalation.name", with: ["Hollow Lord", {translate: "elite.escalation.rarity.legendary"}, {translate: "entity.minecraft.zombie"}], color: "#FFAA00"}` |
+| Names are varied and affix-related | `/escalation names` — 14/14 distinct at Legendary, 8/8 at Uncommon, 8/8 for skeleton, 8/8 for illager, 6/6 for arthropod. `Sanguinerot` (vampiric), `Bloodwind` (vampiric+swift), `Solar Dawnbringer` (sunwalker), `Summoner of the Gloom` (summoner), `Quake Sigilbearer` (quaking+warded) |
+| **Same elite, same name after a reload** | two boots against one world: `Stonechill (Legendary Wither Skeleton)` and its whole equipment set read back identical off disk, zero ERROR/WARN in either boot |
+| Iteration-1 elites still load | a leftover elite with no `name` field deserialised clean and printed `name: -` |
+| Gear ladder | Legendary zombie: `mainhand=Netherite Sword+3, head=Diamond Helmet, chest=Diamond Chestplate+1, legs=Netherite Leggings+2`. Uncommon zombie: `chest=Copper Chestplate@0.085, legs=Copper Leggings@0.085, feet=Golden Boots@0.085` |
+| **Netherite armour never drops** | `drop_chances` NBT: `{mainhand: 0.05f, head: 0.05f, chest: 0.05f, legs: 0.0f}` (netherite legs) and `{head: 0.0f, …}` (netherite helmet) |
+| Tag gate holds | Legendary creeper: `gear: -` |
+| Ranged mobs keep their weapon | Legendary skeleton: `mainhand=Bow@0.085` plus a full armour set |
+| **The toggles are genuinely not preset-governed** | a hand-seeded `{"preset":"HELL_ON_EARTH","eliteGearDrops":false,"allMobGearDrops":false}` loaded with the label **intact** (the "names a preset only" path still fires), and after a later `escalation preset gathering_clouds` the file still read `"eliteGearDrops": false, "allMobGearDrops": false` |
+| Guarantee B1 unaffected | `/escalation audit legendary 4000` → **0 violations**, worst EHP index 5.83 vs the 6.00 ceiling; `uncommon 4000` → 0 violations |
+
+Harnesses: `scratchpad/esc-smoke-gear.sh` (features) and `scratchpad/esc-smoke-reload.sh` (the
+two-boot name-persistence test). Both refuse to run without a pre-existing `eula=true`.
+
+### 12.5 Still owed
+
+1. **No player kill has ever happened**, so the drop path itself — vanilla's roll, its damage
+   line, and both toggles actually suppressing — is proven by reading vanilla's source and by
+   the drop-chance NBT, not by seeing an item hit the ground. A headless server has no player;
+   this needs the in-game pass. It is the same shape of gap as §10.8's item 5.
+2. **The name has never been SEEN**: over a mob's head under the crosshair, and on the elite
+   plate. Both draw the same component, and the plate needed no change, so the risk is layout
+   (a Legendary two-part name is long) rather than correctness.
+3. `/escalation names` rolls affixes against the live preset, so its output reflects whatever
+   bonus slots the preset grants. That is deliberate but worth knowing when reading a log.
+4. The gear feature adds one more thing for §10.8's item 6 (`MobMixin` TAIL vs a subclass's own
+   finalisation) to confirm in-game — a **baby zombie in a full set** is now the case to look
+   at.

@@ -157,6 +157,21 @@ public final class ClothConfigScreen {
 				.setSaveConsumer(value -> config.elitePlate = value)
 				.build());
 
+		// The two gear-drop toggles, next to the plate and above the governed block for the
+		// same reason: no preset stamps any of the three. Both of THESE are server-side rules
+		// though — on a dedicated server the server's copy decides — so their tooltips say so
+		// rather than repeating the plate's "this setting is yours" line.
+		elites.addEntry(eb.startBooleanToggle(Component.translatable("config.escalation.eliteGearDrops"), config.eliteGearDrops)
+				.setDefaultValue(true)
+				.setTooltip(Component.translatable("config.escalation.eliteGearDrops.tooltip"))
+				.setSaveConsumer(value -> config.eliteGearDrops = value)
+				.build());
+		elites.addEntry(eb.startBooleanToggle(Component.translatable("config.escalation.allMobGearDrops"), config.allMobGearDrops)
+				.setDefaultValue(true)
+				.setTooltip(Component.translatable("config.escalation.allMobGearDrops.tooltip"))
+				.setSaveConsumer(value -> config.allMobGearDrops = value)
+				.build());
+
 		elites.addEntry(eb.startDoubleField(Component.translatable("config.escalation.eliteChanceMax"), config.eliteChanceMax)
 				.setDefaultValue(Tuning.PRESET_CLOUDS_ELITE_CHANCE_MAX)
 				.setMin(0.0).setMax(1.0)
