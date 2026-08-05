@@ -1,0 +1,40 @@
+{
+	"schemaVersion": 1,
+	"id": "${id}",
+	"version": "${version}",
+	"name": "${name}",
+	"description": "Elite mobs with affixes, a progression-driven difficulty curve, and spawn control. Four presets from Sunny Day to Hell on Earth.",
+	"authors": [
+		"balovich-matje"
+	],
+	"license": "MIT",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"com.escalation.Escalation"
+		],
+		"client": [
+			"com.escalation.client.EscalationClient"
+		],
+		"modmenu": [
+			"com.escalation.client.config.ModMenuIntegration"
+		]
+	},
+	"mixins": [
+		"escalation.mixins.json",
+		{
+			"config": "escalation.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": "${loader}",
+		"minecraft": "${minecraft}",
+		"java": ">=${java_floor}",
+		"fabric-api": "*"
+	},
+	"suggests": {
+		"modmenu": "*",
+		"cloth-config": "*"
+	}
+}
