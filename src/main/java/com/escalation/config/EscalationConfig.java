@@ -77,6 +77,22 @@ public final class EscalationConfig {
 	public double spawnRateProgressionBonus = Tuning.SPAWN_RATE_MAX_BONUS;
 
 	// =====================================================================================
+	// Client display. NOT preset-governed and never synced: how hard the game is and what
+	// this player's own HUD shows are different questions, and a preset that reached across
+	// and switched someone's overlay off would be the "hidden override layer" §8 forbids.
+	//
+	// Read ONLY from src/client. On a dedicated server this field is loaded and ignored;
+	// each connected client reads its own file, which is the right owner for a display
+	// preference.
+	// =====================================================================================
+
+	/**
+	 * Draw the elite info plate — name, health bar and affix list — for the elite under the
+	 * crosshair. Self-contained: no WTHIT and no Jade, and it needs neither installed.
+	 */
+	public boolean elitePlate = true;
+
+	// =====================================================================================
 	// PRESET-GOVERNED FIELDS START HERE.
 	//
 	// Every field below is named in Preset.GOVERNED_FIELDS and written by Preset.stamp.

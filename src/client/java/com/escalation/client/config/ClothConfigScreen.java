@@ -148,6 +148,15 @@ public final class ClothConfigScreen {
 	private static void buildElites(final ConfigBuilder builder, final ConfigEntryBuilder eb, final EscalationConfig config) {
 		ConfigCategory elites = builder.getOrCreateCategory(Component.translatable("config.escalation.category.elites"));
 
+		// First on the tab, and the only entry here that is NOT preset-governed: it is a
+		// display preference on THIS client, so no preset stamps it and nothing syncs it. The
+		// tooltip says so, because everything under it on this tab behaves the other way.
+		elites.addEntry(eb.startBooleanToggle(Component.translatable("config.escalation.elitePlate"), config.elitePlate)
+				.setDefaultValue(true)
+				.setTooltip(Component.translatable("config.escalation.elitePlate.tooltip"))
+				.setSaveConsumer(value -> config.elitePlate = value)
+				.build());
+
 		elites.addEntry(eb.startDoubleField(Component.translatable("config.escalation.eliteChanceMax"), config.eliteChanceMax)
 				.setDefaultValue(Tuning.PRESET_CLOUDS_ELITE_CHANCE_MAX)
 				.setMin(0.0).setMax(1.0)

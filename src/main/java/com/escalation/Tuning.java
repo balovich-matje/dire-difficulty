@@ -531,6 +531,148 @@ public final class Tuning {
 	public static final double ELITE_TICK_RADIUS = 48.0;
 
 	// =================================================================================
+	// CLIENT VISUALS — the rarity glow, the aura particles and the elite plate.
+	//
+	// Balance numbers and VISUAL numbers both live in this file (user instruction,
+	// 2026-08-05). Nothing below is read by the server; the whole block is read from
+	// `src/client`. It lives here anyway because the house rule is about WHERE a constant
+	// lives, not about which logical side reads it — one file to retune, whether the knob
+	// moves damage or pixels. `Rarity` exposes the per-rarity rows the same way it exposes
+	// the stat columns, so no client class indexes these arrays directly.
+	//
+	// This block replaces the client-side `EliteGlowLayer.GLOW_ALPHA` constant that the
+	// first iteration kept in the render class. That single flat 0x66 is exactly what the
+	// first in-game look reported: a Legendary zombie "simply looked a bit yellow", because
+	// a 40%-alpha tint modulated by the mob's own dark skin reads as a wash, not a glow.
+	// =================================================================================
+
+	// ---- The rarity glow. Two depth-tested emissive passes over the mob's own model:
+	// a sheen on the silhouette itself, and an inflated shell that becomes the halo.
+	// Both are alpha dials on `ENTITY_TRANSLUCENT_EMISSIVE`, which blends TRANSLUCENT —
+	// on a pipeline that blends ONE,ONE source alpha is not a factor at all, which is the
+	// measured trap `EliteGlowRenderType` documents for the port.
+
+	/**
+	 * Sheen alpha 0..255 on the mob's own silhouette, per rarity. Uncommon is a hint;
+	 * Legendary is meant to be unmistakable at thirty blocks.
+	 */
+	public static final int[] GLOW_SKIN_ALPHA = {0x40, 0x70, 0xA0, 0xCC};
+
+	/**
+	 * Halo-shell alpha 0..255, per rarity. Zero disables the shell for that rarity while
+	 * leaving the sheen alone.
+	 *
+	 * <p>The shell is the mob's model drawn again slightly larger. Its BACK faces sit
+	 * behind the mob's own body, which already wrote depth in the opaque pass, so they are
+	 * occluded everywhere the body covers them and survive only in the rim — the rim
+	 * therefore gets both faces and reads brighter than the middle. That double
+	 * contribution is what makes the pass read as a halo rather than as more tint.
+	 */
+	public static final int[] GLOW_HALO_ALPHA = {0x18, 0x30, 0x50, 0x74};
+
+	/**
+	 * Halo-shell inflation, per rarity. {@code 1.0} disables the shell for that rarity.
+	 * Kept small: this is a rim, not a bubble, and the shell shares the base model's alpha
+	 * cutout so it still hugs the real silhouette.
+	 */
+	public static final double[] GLOW_HALO_INFLATE = {1.025, 1.040, 1.055, 1.075};
+
+	/**
+	 * Peak swing of the pulse either side of a rarity's alpha, as a fraction of it.
+	 * {@code 0.0} freezes the glow. Applied to both passes so they breathe together.
+	 */
+	public static final double GLOW_PULSE_AMPLITUDE = 0.30;
+
+	/** Ticks per full pulse cycle. 50 is one slow breath every two and a half seconds. */
+	public static final double GLOW_PULSE_PERIOD_TICKS = 50.0;
+
+	/**
+	 * Model-space Y the halo shell is scaled about, in blocks below the model origin.
+	 *
+	 * <p>At layer time the pose stack sits where {@code LivingEntityRenderer.submit} left
+	 * it: {@code translate(0, -1.501, 0)} after a {@code scale(-1, -1, 1)} flip, so the
+	 * origin is at the mob's shoulders and +Y runs downward to the feet at 1.5. Scaling
+	 * about the raw origin would sink a Legendary's feet ~11 cm into the floor; scaling
+	 * about the mid-body point halves the worst-case drift and centres it. 0.75 is exactly
+	 * half of vanilla's 1.501 model offset, so it is the body centre for every model that
+	 * stands on the ground rather than a number picked by eye.
+	 */
+	public static final double GLOW_HALO_PIVOT_Y = 0.75;
+
+	/**
+	 * Pulse multiplier on a glow alpha at an entity's own age in ticks.
+	 *
+	 * <p>Driven by {@code EntityRenderState.ageInTicks} ({@code entity.tickCount +
+	 * partialTicks}) rather than by level time, so every elite carries its own phase. A
+	 * pack lit off one clock pulses in lockstep and reads as a strobe; per-entity phase
+	 * reads as several things breathing.
+	 */
+	public static double glowPulse(final double ageInTicks) {
+		return 1.0 + GLOW_PULSE_AMPLITUDE
+				* Math.sin(ageInTicks * (2.0 * Math.PI / GLOW_PULSE_PERIOD_TICKS));
+	}
+
+	/** A glow alpha after the pulse, clamped into the 0..255 the colour packer wants. */
+	public static int glowAlpha(final int baseAlpha, final double pulse) {
+		return clampInt((int) Math.round(baseAlpha * pulse), 0, 255);
+	}
+
+	// ---- Rarity-coloured aura motes, Epic and up. Client-side particles only: nothing is
+	// spawned on the server, nothing crosses the wire and nothing is authoritative.
+
+	/** Lowest rarity TIER (1..4) that emits motes. 3 is Epic. */
+	public static final int AURA_PARTICLE_MIN_TIER = 3;
+
+	/** Ticks between emission passes. */
+	public static final int AURA_PARTICLE_INTERVAL_TICKS = 3;
+
+	/** Blocks from the camera within which an elite emits. */
+	public static final double AURA_PARTICLE_RADIUS = 32.0;
+
+	/** Hard cap on motes per pass, so a horde cannot become a fog bank. */
+	public static final int AURA_PARTICLE_MAX_PER_PASS = 16;
+
+	/** Chance an eligible elite emits on a given pass. */
+	public static final double AURA_PARTICLE_CHANCE = 0.55;
+
+	/**
+	 * Initial Y velocity of a mote — negative, so it drips. Vanilla's own spell particle
+	 * carries {@code gravity = -0.1F}, i.e. a slight upward acceleration, so a mote slows
+	 * as it falls and hangs rather than raining.
+	 */
+	public static final double AURA_PARTICLE_DRIFT_Y = -0.06;
+
+	// ---- The elite plate: a Diablo-style read-out for the elite under the crosshair.
+	// Vanilla chrome only — it is drawn with the vanilla boss-bar sprites at the vanilla
+	// boss-bar geometry, so there is no custom texture and no custom panel anywhere.
+
+	/** Blocks of crosshair reach. The ray stops at the first block, so walls hide the plate. */
+	public static final double PLATE_RAY_DISTANCE = 32.0;
+
+	/** Ticks the plate stays up after the crosshair leaves the elite. 20 = one second. */
+	public static final int PLATE_LINGER_TICKS = 20;
+
+	/** Vanilla boss-bar geometry, reused verbatim. */
+	public static final int PLATE_BAR_WIDTH = 182;
+
+	public static final int PLATE_BAR_HEIGHT = 5;
+
+	/** Y of the first vanilla boss bar, and of the plate when there are none. */
+	public static final int PLATE_FIRST_BAR_Y = 12;
+
+	/** Vertical stride vanilla's boss-bar loop advances by: its own {@code 10 + 9}. */
+	public static final int PLATE_BOSS_BAR_STRIDE = 19;
+
+	/** Vanilla's font line height. */
+	public static final int PLATE_LINE_HEIGHT = 9;
+
+	/** Gap between the bar and the first affix line. */
+	public static final int PLATE_AFFIX_GAP = 3;
+
+	/** Affix-line colour, ARGB. Container grey — the affixes are a caption, not the headline. */
+	public static final int PLATE_AFFIX_COLOUR = 0xFFA0A0A0;
+
+	// =================================================================================
 	// Shared helpers. Deliberately java.lang only — no Minecraft import reaches this file,
 	// which is what lets the port compile it unchanged on every node.
 	// =================================================================================

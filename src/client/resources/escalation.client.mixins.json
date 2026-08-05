@@ -3,6 +3,7 @@
 	"package": "com.escalation.client.mixin",
 	"compatibilityLevel": "${java}",
 	"client": [
+		"BossHealthOverlayAccessor",
 		"LivingEntityRendererMixin"
 	],
 	"injectors": {

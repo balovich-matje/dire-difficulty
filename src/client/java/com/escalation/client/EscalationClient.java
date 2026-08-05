@@ -3,7 +3,12 @@ package com.escalation.client;
 import com.escalation.Escalation;
 
 import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.LivingEntityRenderLayerRegistrationCallback;
+import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
+import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements;
+
+import net.minecraft.resources.Identifier;
 
 /**
  * Client entrypoint.
@@ -49,6 +54,13 @@ import net.fabricmc.fabric.api.client.rendering.v1.LivingEntityRenderLayerRegist
  * {@code docs/DESIGN.md} §2.1 already calls out — a 1.95-block zombie stops fitting a
  * 2-block gap above roughly 1.026x, so elites path around instead of following you in.
  *
+ * <h3>1b. Everything else the client shows — also nothing on the wire.</h3>
+ * The elite plate lists AFFIX names and the aura motes need the rarity TIER, and neither
+ * needed a packet either: {@code EliteData} has carried the affix ids as strings and synced
+ * the whole record to every tracker since iteration 1 ({@code docs/DESIGN.md} §10.4). So the
+ * two features added after the first in-game look are pure readers of state that was already
+ * here — <b>no wire change, no new payload, no new attachment</b>.
+ *
  * <h3>2. Rarity — the synced attachment, read live.</h3>
  * {@code FabricEliteStore} registers {@code EliteData} with a sync predicate covering every
  * tracker, so each client already holds it and {@code EliteStore.INSTANCE.get(entity)}
@@ -85,6 +97,26 @@ public final class EscalationClient implements ClientModInitializer {
 		LivingEntityRenderLayerRegistrationCallback.EVENT.register(
 				(entityType, renderer, helper, context) -> EliteGlowLayer.attach(renderer, helper));
 
-		Escalation.LOGGER.info("{} client loaded (elite rarity glow)", Escalation.MOD_ID);
+		// The plate's crosshair pick and the Epic+ aura motes. Both are tick-rate behaviours,
+		// not frame-rate ones, so neither belongs in a render layer: a frame count is a frame
+		// rate, and the same elite would emit twice as fast at 120 fps as at 60.
+		ClientTickEvents.END_CLIENT_TICK.register(ElitePlateTracker::onEndClientTick);
+		ClientTickEvents.END_CLIENT_TICK.register(EliteAuraParticles::onEndClientTick);
+
+		// Anchored AFTER the boss bars, and that anchor is a measurement rather than a
+		// preference. Vanilla's Hud calls extractBossOverlay unconditionally — the "are there
+		// any bars" test is INSIDE BossHealthOverlay.extractRenderState — so fabric's wrapper
+		// runs on every HUD frame and an element attached to it runs with it. Anchoring to
+		// something vanilla can skip would silently take the plate with it; Skill
+		// Proficiencies hit exactly that with EXPERIENCE_LEVEL, which vanilla skips at zero XP
+		// levels. Being inside the Hud's `!isHidden` branch also gives F1 for free.
+		//
+		// The anchor is about draw ORDER; the plate's own Y is computed from the live boss-bar
+		// count in ElitePlate.belowBossBars, so "below any real boss bars" holds regardless.
+		HudElementRegistry.attachElementAfter(VanillaHudElements.BOSS_BAR,
+				Identifier.fromNamespaceAndPath(Escalation.MOD_ID, "elite_plate"), ElitePlate::render);
+
+		Escalation.LOGGER.info("{} client loaded (elite rarity glow, aura motes, elite plate)",
+				Escalation.MOD_ID);
 	}
 }

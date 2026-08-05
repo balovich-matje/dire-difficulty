@@ -42,6 +42,21 @@ public enum Rarity {
 		return Tuning.RARITY_COLOUR[ordinal()];
 	}
 
+	/** Alpha 0..255 of the glow sheen drawn on the mob's own silhouette, before the pulse. */
+	public int glowSkinAlpha() {
+		return Tuning.GLOW_SKIN_ALPHA[ordinal()];
+	}
+
+	/** Alpha 0..255 of the inflated halo shell, before the pulse. Zero disables the shell. */
+	public int glowHaloAlpha() {
+		return Tuning.GLOW_HALO_ALPHA[ordinal()];
+	}
+
+	/** How far the halo shell is inflated past the model. {@code 1.0} disables the shell. */
+	public double glowHaloInflate() {
+		return Tuning.GLOW_HALO_INFLATE[ordinal()];
+	}
+
 	/** {@code MAX_HEALTH} multiplier. */
 	public double maxHealthMultiplier() {
 		return Tuning.RARITY_MAX_HEALTH[ordinal()];

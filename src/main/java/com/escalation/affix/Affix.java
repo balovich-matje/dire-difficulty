@@ -49,6 +49,21 @@ public interface Affix {
 	 */
 	String id();
 
+	/**
+	 * The lang key for this affix's display name — {@code affix.escalation.<id>}.
+	 *
+	 * <p>Derived from {@link #id()} rather than declared per implementation, so a key and
+	 * an id cannot drift apart and adding an affix cannot forget one. The client's elite
+	 * plate is the only reader today; the key exists in {@code src/main} because the id it
+	 * is built from does, and because a server-side report will want the same string.
+	 *
+	 * <p>The id is frozen (see {@link #id()}), so this key is frozen with it: renaming one
+	 * would orphan the translation as surely as it orphans the stored affix.
+	 */
+	default String nameKey() {
+		return "affix.escalation." + id();
+	}
+
 	/** The class §4.2's caps are expressed in. */
 	AffixClass affixClass();
 

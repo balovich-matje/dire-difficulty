@@ -1101,3 +1101,182 @@ cannot drift and the client is sent one copy of the arguments.
    headless server has none.
 9. **The oversized-elite pathing consequence of §2.1 is unconfirmed.** Any visible upscale stops a
    zombie fitting a 2-block door. It is accepted as counterplay, but it has not been seen.
+
+---
+
+## 11. As built — iteration 1.1, the first in-game look (2026-08-05)
+
+The user launched a 26.2 client against the iteration-1 jar and reported one thing: a Legendary
+zombie **"simply looked a bit yellow"** — the rarity overlay read as a skin TINT, not as a glow.
+That is the only finding, and it is a real one. This section records what was done about it and
+the elite plate that shipped alongside. **It outranks §10 the way §10 outranks §1–§9.**
+
+### 11.1 The glow — diagnosis, not a bigger number
+
+§10.6's pass was correct and still is: `entityTranslucentEmissive` depth-**tests** and does not
+depth-**write** (`RenderPipelines:353-363`), takes no lightmap, and inherits the skin's alpha
+cutout. Walls occlude it, it reads in a cave, and it hugs the silhouette. None of that changed.
+
+What was wrong was that **one in-silhouette pass at a flat `0x66` cannot look like a glow**, and
+the reason is in the pipeline rather than in the constant. `ENTITY_TRANSLUCENT_EMISSIVE`
+multiplies the vertex colour by the model texture, so 40% orange over a zombie's dark green-grey
+skin is bounded by how bright that skin already is — a muted wash. And it is bounded to the
+*inside* of the mob, where there is nothing for a player to read as light coming off a body.
+
+Three changes, all dials in `Tuning.java`, none of them touching the occlusion guarantee:
+
+| Change | What it is | Why |
+|---|---|---|
+| **Alpha up the ladder** | `GLOW_SKIN_ALPHA = {0x40, 0x70, 0xA0, 0xCC}` | §2.1's own promise, delivered: Uncommon stays a hint so a common spawn does not look like an event; Legendary is meant to be unmistakable at thirty blocks |
+| **A halo shell** | `GLOW_HALO_INFLATE = {1.025, 1.040, 1.055, 1.075}`, `GLOW_HALO_ALPHA = {0x18, 0x30, 0x50, 0x74}` | The model re-submitted slightly larger. `ENTITY_TRANSLUCENT_EMISSIVE` is `withCull(false)`, so the shell's BACK faces are drawn too — and they sit behind the mob's own body, which wrote depth in the opaque pass, so they survive **only in the rim**. The rim gets two faces, the middle gets one. That gradient off the edge of the body is the thing a player reads as "glowing", and no alpha on a single in-silhouette pass can produce it |
+| **A pulse** | `GLOW_PULSE_AMPLITUDE = 0.30`, `GLOW_PULSE_PERIOD_TICKS = 50` | A static colour is furniture; a moving one is a signal. Driven off `EntityRenderState.ageInTicks` (`entity.tickCount + partialTicks`, `EntityRenderer:168`) rather than level time, so **each elite carries its own phase** — a pack lit off one clock strobes in lockstep, per-entity phase reads as several things breathing |
+
+**The hard rule holds, and here is the argument rather than the assertion.** Both passes go
+through the same render type, so both depth-test. The shell inflates by at most 7.5%, which at a
+zombie's 0.6-block half-width protrudes about **2 cm** — it cannot clear a wall the mob's own
+model does not already clear. `affectsOutline = false` on the type and `NO_OUTLINE` on every
+submit keep both passes out of `entityOutlineTarget`, whose blit is the thing that x-rays.
+
+**It is still not a light source.** The emissive define means no lightmap is sampled, so an elite
+reads at the bottom of a cave — but nothing is written into the level's block light, so the floor
+under it stays dark. The alpha ceiling is `0xCC` on a *translucent* blend, so a Legendary is never
+an opaque coloured statue and never washes out a night sky.
+
+**Halo pivot, and it is arithmetic rather than taste.** At layer time the pose stack is where
+`LivingEntityRenderer.submit` left it: `translate(0, -1.501, 0)` after a `scale(-1, -1, 1)` flip,
+so the origin is the mob's shoulders and +Y runs *down* to the feet at 1.5. Scaling about the raw
+origin would sink a Legendary's feet ~11 cm into the floor. `GLOW_HALO_PIVOT_Y = 0.75` is exactly
+half of vanilla's own 1.501 offset — the body centre for anything that stands on the ground — and
+it halves and centres the drift. The push/pop around the shell is safe against the submit inside
+it because `SubmitNodeCollection.submitModel` takes `poseStack.last().copy()`: the node keeps a
+snapshot, not a reference.
+
+**Aura motes, Epic and up** (`client/EliteAuraParticles`). `ParticleTypes.ENTITY_EFFECT` takes a
+`ColorParticleOption` (`ColorParticleOption.create(type, argb)`, verified public static), so the
+mote is `Tuning.RARITY_COLOUR` by construction rather than by a second palette. Client-side only —
+nothing is spawned server-side, nothing crosses the wire, nothing is authoritative. It runs on
+`ClientTickEvents.END_CLIENT_TICK` rather than in the render layer, because **a frame count is a
+frame rate**: the same elite would emit twice as fast at 120 fps as at 60. Bounded three ways
+(`AURA_PARTICLE_INTERVAL_TICKS` 3, `AURA_PARTICLE_RADIUS` 32, `AURA_PARTICLE_MAX_PER_PASS` 16 plus
+a per-elite `AURA_PARTICLE_CHANCE` so the cap is not always spent on whichever entities
+`entitiesForRendering()` lists first). Vanilla's `SpellParticle` carries `gravity = -0.1F`, a
+slight *upward* acceleration, so `AURA_PARTICLE_DRIFT_Y = -0.06` produces motes that drip and then
+hang rather than rain.
+
+**Deviation from §10.6 worth naming.** Iteration 1 kept `GLOW_ALPHA` in the client class,
+arguing (correctly, for the siblings) that a pure render dial belongs with the renderer. Every
+glow, particle and plate number now lives in `Tuning.java` on the standing instruction that
+**balance and visual constants share that one file**. `Rarity` gained `glowSkinAlpha()`,
+`glowHaloAlpha()` and `glowHaloInflate()` so the enum still carries no number and no client class
+indexes a `Tuning` array directly.
+
+### 11.2 The elite plate — self-contained, no WTHIT, no Jade
+
+`client/ElitePlateTracker` (input) + `client/ElitePlate` (draw), gated by
+`EscalationConfig.elitePlate`, default on, in the Cloth screen's Elites tab.
+
+```
+                   Zombie                <- the elite's own name, in the rarity colour
+    [==================        ]         <- vanilla boss-bar sprites, rarity-matched
+                  Vampiric               <- the drawn affixes, container grey
+                 Shieldbreaker
+                   Quaking
+```
+
+**The pick.** `Minecraft.hitResult` is clipped to interaction reach, so a plate built on it would
+only appear once you were already inside a Legendary's swing. Instead
+`ProjectileUtil.getHitResultOnViewVector(camera, EntitySelector.CAN_BE_PICKED, 32)` — public
+static, read off the 26.2 sources. Using vanilla's helper rather than a hand-rolled ray **buys the
+wall rule for free**: its first act is `level.clipIncludingBorder(new ClipContext(from, to,
+COLLIDER, NONE, source))` and it truncates the entity search to the block hit, so an elite behind a
+wall is never returned. One rule, both surfaces — the plate cannot become an x-ray for the same mob
+whose glow §2.2 works so hard to keep depth-tested. A non-elite standing in the way hides the plate
+exactly as it hides the mob.
+
+**The linger is a display delay, not a cache.** `PLATE_LINGER_TICKS = 20`. Only the entity
+reference is held; health, rarity and the affix list are re-read every frame from the synced
+attachment, so a lingering plate shows health dropping while you look away, and an elite that
+stops being one disappears on the next frame rather than at the end of the second. Four conditions
+drop the target immediately instead of lingering: level gone, entity dead, entity removed, entity
+no longer an elite.
+
+**Vanilla chrome, taken literally — this mod ships no new texture.** The bar is *vanilla's boss
+bar*: same `boss_bar/*` sprite ids, same 182×5 geometry, same `Mth.lerpDiscrete` fill, same
+`RenderPipelines.GUI_TEXTURED`, read off `BossHealthOverlay.extractBar`. The palette matches by
+construction — vanilla ships seven boss-bar colours and four of them **are** the four rarity
+colours (green / blue / purple / yellow against §2.1's green / blue / purple / orange), so the
+rarity ordinal indexes the sprite array directly and the bar cannot disagree with the glow. No
+panel, no border, no backdrop: vanilla draws boss-bar names as bare shadowed text and so does this.
+The name sits at `barY - 9` and the bar 91 px either side of centre, i.e. **the plate is drawn
+exactly where the next boss bar would have gone**.
+
+**Below the boss bars, and it needed one accessor.** `Minecraft.getInstance().gui.hud
+.getBossOverlay()` is public all the way down, but `BossHealthOverlay` exposes only
+`shouldPlayMusic` / `shouldDarkenScreen` / `shouldCreateWorldFog`, all three of which are `false`
+for an ordinary boss bar — none of them can even answer "is there one". The count is a private
+`Map<UUID, LerpingBossEvent> events` (`BossHealthOverlay.java:54`), so
+`client/mixin/BossHealthOverlayAccessor` is a one-method `@Accessor` and nothing else.
+`ElitePlate.belowBossBars` then **mirrors vanilla's own loop** (`y = 12`, `y += 10 + 9` per bar,
+`break` at `guiHeight / 3`) rather than multiplying, which is what reproduces the ceiling: on a
+server with a dozen boss bars the plate stacks against the same limit the bars do instead of
+sliding off the screen.
+
+**The anchor is a measurement.** Attached after `VanillaHudElements.BOSS_BAR` because vanilla's
+`Hud` calls `extractBossOverlay` *unconditionally* — the emptiness test lives inside
+`BossHealthOverlay.extractRenderState`, not around the call — so fabric's wrapper runs on every HUD
+frame and an element attached to it runs with it. Skill Proficiencies learned the other half of
+this rule the hard way: an element anchored to `EXPERIENCE_LEVEL` is skipped whenever vanilla skips
+its anchor, which it does at zero XP levels. Being inside the `Hud`'s `!isHidden` branch also gives
+F1 for free. The anchor governs draw ORDER only; the plate's Y comes from the live bar count.
+
+**No numeric health read-out, deliberately.** Vanilla boss bars have none and Diablo's elite plate
+has none; a "68 / 68" over a 5-pixel bar is the first piece of custom chrome that would make the
+rest look like an overlay. Numbers live in `/escalation info`.
+
+### 11.3 Wire format — unchanged, and that is the finding
+
+**No wire change was needed for either feature, and none was made.** §10.4's `EliteData` already
+carries the affix ids **as strings** and already syncs the whole record to every tracker
+(`FabricEliteStore` registers it with `AttachmentSyncPredicate.all()`). So the affix names the
+plate lists have been on every client since iteration 1 — merely unread. The client-side additions
+are pure readers of state that was already there: no payload, no new attachment, no new sync
+predicate, and `EliteStore`/`EliteData` are untouched.
+
+The one thing that did have to be added is **display names**: `Affix.nameKey()`, a default method
+returning `affix.escalation.<id>` derived from the frozen id so a key and an id cannot drift, plus
+25 entries in `en_us.json`. An id this build does not know is *skipped* by the plate rather than
+printed, matching what `Affixes.resolve` does server-side and for the same reason.
+
+### 11.4 Verification, and what is still owed
+
+| Claim | Evidence |
+|---|---|
+| Build green | `./gradlew build`, zero errors, zero warnings. `buildAndCollect` → `build/libs/0.1.0/escalation-0.1.0+26.2.jar` (164 KB) |
+| Headless dedicated server still boots clean | `Done (0.231s)`, **zero ERROR lines, zero WARN lines, zero mixin errors**, clean `stop`, **exit 0**. The render code is client-only, so what this proves is that the common-side changes (`Tuning`, `Rarity`, `Affix.nameKey`, the new config field) break nothing server-side |
+| The plate toggle is genuinely not preset-governed | The server rewrote `run/config/advanced-difficulty-settings.json` with `"elitePlate": true` and `"preset": "GATHERING_CLOUDS"` — `sanitize()` did **not** flip the label to Custom, which it would have if the field had been added below the governed banner |
+
+**Still owed, and it is the same gap §10.8 named**: the whole in-game client pass. Nothing
+rendering-side is proven by compilation. Specifically unseen: the halo reading as a rim rather than
+as a bubble, the pulse period feeling slow rather than nervous, the Legendary alpha being
+unmistakable at thirty blocks without being blinding at night, the motes not fogging a horde, the
+plate's Y landing correctly under one and under several boss bars, and — the one that matters —
+**both glow passes and the plate all being occluded by a wall**. The jar is in
+`../specialities/run/mods/` and in the Fabulously Optimized profile for the next launch.
+
+### 11.5 Parked for iteration 2 — WTHIT / Jade integration
+
+A plugin that puts the elite's rarity, health and affixes into **WTHIT** or **Jade**'s own overlay,
+for players who already run one. Deliberately NOT built now, for two reasons:
+
+1. **It would be an addition to §11.2's plate, never a replacement.** A read-out that only appears
+   for players who happen to run a third mod is not a feature, so the self-contained plate has to
+   exist either way — and once it does, the plugin is a convenience rather than a capability.
+2. It is a real dependency surface: two APIs, two `IWailaPlugin`-style entrypoints declared in
+   `fabric.mod.json`, and both soft — the `isModLoaded` + inner-holder shape §5.1 already
+   specifies, so neither class is ever resolved when its mod is absent. That is a self-contained
+   piece of work with no bearing on anything above it, which is exactly what makes it a clean
+   iteration-2 item.
+
+The data it would need is already synced and already read: `EliteClientState.eliteOf(entity)`
+answers on the client, and `Affix.nameKey()` gives the labels. A plugin would be a new file and no
+change to anything in `elite/`, `platform/` or `client/`.
