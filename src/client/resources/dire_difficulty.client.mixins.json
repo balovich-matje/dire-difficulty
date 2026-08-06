@@ -1,0 +1,15 @@
+{
+	"required": true,
+	"package": "com.diredifficulty.client.mixin",
+	"compatibilityLevel": "${java}",
+	"client": [
+		"BossHealthOverlayAccessor",
+		"LivingEntityRendererMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	},
+	"overwrites": {
+		"requireAnnotations": true
+	}
+}

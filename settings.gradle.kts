@@ -30,4 +30,4 @@ plugins {
 // the shared-code ceiling, the `platform/` seam, no `//?` directives anywhere yet.
 
 // Matches the mod id. Never change it — the id is permanent (docs/DESIGN.md §7.5).
-rootProject.name = "escalation"
+rootProject.name = "dire_difficulty"

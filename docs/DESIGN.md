@@ -1,11 +1,13 @@
-# Advanced Difficulty Settings — design (iteration 1)
+# Dire Difficulty — design (iteration 1)
 
 **Status:** DESIGN ONLY. Nothing built. This document is the spec that iteration 1 implements.
 **Target:** 26.2 Fabric, single node, architected for the same seven-target Stonecutter port the
 other two mods already carry.
-**Working display name:** "Advanced Difficulty Settings". See §7 — the name analysis recommends
-changing it; the **mod id decision in §7.4 is the one thing that must be made before the first
-commit**, because it is permanent.
+**Display name:** "Dire Difficulty". Mod id and namespace **`dire_difficulty`**, Java package
+`com.diredifficulty`. It was written under the working name "Advanced Difficulty Settings" with
+the id `escalation`; the 2026-08-06 rename moved both, in the one window where moving an id is
+legal — nothing published, only local test worlds. **§7.1–§7.5 keep the original name analysis
+verbatim as history; §7.6 records what actually shipped and closes the id.**
 
 ## 0. Binding rules
 
@@ -368,7 +370,7 @@ Pluggable providers behind `score.ScoreProvider`:
 ```java
 public interface ScoreProvider {
     String id();                                  // config key
-    boolean enabled(EscalationConfig config);
+    boolean enabled(DireDifficultyConfig config);
     OptionalDouble score(ServerPlayer player);    // 0..1, or ABSENT
 }
 ```
@@ -754,9 +756,35 @@ a later rename is a one-line change instead of a settings loss.
 
 ---
 
+### 7.6 Outcome — the name that shipped (2026-08-06)
+
+**§7.1–§7.5 above are kept verbatim as the record of the analysis.** They are history; this
+subsection is what was actually decided, and it supersedes §7.5's recommendation.
+
+| | Analysis recommended | Shipped |
+|---|---|---|
+| Display name | Escalation | **Dire Difficulty** (§7.4's "Dire" row — the only candidate returning *zero* Modrinth search results) |
+| Mod id / namespace | `escalation` | **`dire_difficulty`** |
+| Java package | `com.escalation` | **`com.diredifficulty`** |
+| Config file | `advanced-difficulty-settings.json` | **`dire-difficulty.json`** (still display-name-derived, per issue #2) |
+| Test command | `/escalation`, alias `/advdiff` | **`/dire`**, alias `/advdiff` |
+
+**Why the id moved at all, when §7.5 says an id is permanent.** §7.5 is right, and the rule is
+not weakened by this. An id change orphans stored data, so it is legal in exactly one window:
+before anything ships. Nothing had been published, no Modrinth project existed, and the only
+worlds carrying `escalation:*` attachment data were local test worlds. That window closed with
+this commit. **`dire_difficulty` is now permanent under §7.5's rule** — the display name may
+change again, the id may not.
+
+The one thing §7.5 got exactly right in practice: `ConfigManager`'s migration hook, built empty
+on day one, made the config half of this rename a two-line change (`FILE_NAME` plus one entry in
+`LEGACY_FILE_NAMES`) with no settings lost.
+
+---
+
 ## 8. Presets
 
-Four presets on a weather ladder, so the escalation is legible from the names alone.
+Four presets on a weather ladder, so the ramp is legible from the names alone.
 
 **Semantics, and they matter for the UX:** selecting a preset **stamps** the individual config
 fields. Editing any stamped field flips `preset` to `CUSTOM`. There is no hidden override layer and
@@ -885,13 +913,13 @@ Nothing here is a discovered bug left standing.
 
 | Claim | Evidence |
 |---|---|
-| Build green | `./gradlew build`, single node, zero errors and zero warnings. `buildAndCollect` → `build/libs/0.1.0/escalation-0.1.0+26.2.jar` (154 KB, 89 classes) |
+| Build green | `./gradlew build`, single node, zero errors and zero warnings. `buildAndCollect` → `build/libs/0.1.0/dire_difficulty-0.1.0+26.2.jar` (154 KB, 89 classes) |
 | Headless dedicated server boots clean | `Done (0.806s)`, **zero mixin errors, zero ERROR lines, zero WARN lines**, clean `stop`, **exit 0** |
 | All eight server injectors resolve | `injectors.defaultRequire: 1` on both configs makes a boot the proof, and `javap` on the `-Dmixin.debug.export` dumps confirms the handlers by name in all five transformed targets: `LivingEntity` (`dropEliteLoot`, `scaleEliteExperience`, `shapeEliteDamage`), `Mob` (`rollElite`, `sunBurnImmunity`), `MobCategory` (`mobCap`, `despawnDistance`, `noDespawnDistance`), `NaturalSpawner` (`spawnFrequency`), `Monster` (`daySpawning`) |
-| **Guarantee B1** (§4.4) | `/escalation audit <rarity> 5000` at all four rarities under Storm Front: **0 violations**, worst EHP index 5.83 vs the 6.00 ceiling, mean affix counts 1.00 / 2.00 / 3.99 / 4.88. The probe re-derives the caps, the exclusions, the slot/budget limits and the index from `Tuning` and `AffixClass` rather than asking `AffixBudget` whether `AffixBudget` was right |
-| Promotion end to end | `/escalation spawn` + `/escalation info` + vanilla `/data get entity`: `escalation:elite_health` `+2.4 add_multiplied_base` on a base-20 zombie → 68.0 max health at Legendary; `escalation:elite_scale` `+0.30` → `getScale()` 1.30; `CustomName` `{color:"#FFAA00", extra:[{translate:"entity.minecraft.zombie"}]}` — the rarity colour straight out of `Tuning.RARITY_COLOUR`, wrapping the mob's own translatable name |
+| **Guarantee B1** (§4.4) | `/dire audit <rarity> 5000` at all four rarities under Storm Front: **0 violations**, worst EHP index 5.83 vs the 6.00 ceiling, mean affix counts 1.00 / 2.00 / 3.99 / 4.88. The probe re-derives the caps, the exclusions, the slot/budget limits and the index from `Tuning` and `AffixClass` rather than asking `AffixBudget` whether `AffixBudget` was right |
+| Promotion end to end | `/dire spawn` + `/dire info` + vanilla `/data get entity`: `dire_difficulty:elite_health` `+2.4 add_multiplied_base` on a base-20 zombie → 68.0 max health at Legendary; `dire_difficulty:elite_scale` `+0.30` → `getScale()` 1.30; `CustomName` `{color:"#FFAA00", extra:[{translate:"entity.minecraft.zombie"}]}` — the rarity colour straight out of `Tuning.RARITY_COLOUR`, wrapping the mob's own translatable name |
 | Exclusion / cap enforcement is real | `spawn … legendary warded rooted bulwark` reports all four rules it bypassed: `class-cap DEFENSE count 3 > 2`, `exclusion warded x rooted`, `exclusion warded x bulwark`, `ehp 6.56 > 6.00` |
-| Loot table (§2.4) | `/escalation loot <rarity> 50` at all four tiers, through `EliteLoot.rollDrops` — the shipped path, not a copy. Whitelist holds: iron/gold/coal/emerald/diamond/ender pearl/netherite scrap/enchanted book and nothing else. T1 never produces emeralds, diamonds, pearls or scrap; T4 never produces coal |
+| Loot table (§2.4) | `/dire loot <rarity> 50` at all four tiers, through `EliteLoot.rollDrops` — the shipped path, not a copy. Whitelist holds: iron/gold/coal/emerald/diamond/ender pearl/netherite scrap/enchanted book and nothing else. T1 never produces emeralds, diamonds, pearls or scrap; T4 never produces coal |
 | Preset stamping | All four presets applied and read back: Sunny Day `0.03 / tier 1`, Gathering Clouds `0.10 / tier 3`, Storm Front `0.22 / tier 4`, Hell on Earth `0.35 / tier 4 / daySpawning true / theHunt true` |
 | Rarity ceiling respected | `spawn … roll` under Sunny Day (`maxRarityTier = 1`) draws Uncommon; under Storm Front it draws across the ladder |
 
@@ -908,12 +936,14 @@ Nothing here is a discovered bug left standing.
 
 ### 10.2 Naming and layout
 
-- **Mod id `escalation`**, as §7.5 requires, permanent. Display name is still "Advanced Difficulty
-  Settings" and the config file follows the display name: `config/advanced-difficulty-settings.json`,
-  with `ConfigManager.LEGACY_FILE_NAMES` shipping **empty from day one** so a later rename to
-  `escalation.json` is a one-line change and nobody loses a setting.
-- Class names follow the id, not §6.1's placeholder `Difficulty*`: `Escalation`, `EscalationConfig`,
-  `EscalationClient`, `EscalationCommands`.
+- **Mod id `dire_difficulty`**, permanent under §7.5's rule and closed by §7.6. Display name
+  "Dire Difficulty"; the config file follows the display name: `config/dire-difficulty.json`,
+  with `ConfigManager.LEGACY_FILE_NAMES` carrying the pre-rename
+  `advanced-difficulty-settings.json` so nobody loses a setting. (Iteration 1 shipped this
+  section as id `escalation` / name "Advanced Difficulty Settings" with the legacy list empty —
+  the hook then did exactly its job at the rename.)
+- Class names follow the id, not §6.1's placeholder `Difficulty*`: `DireDifficulty`, `DireDifficultyConfig`,
+  `DireDifficultyClient`, `DireDifficultyCommands`.
 - **Packages are deeper than §6.1's flat root.** The elite core is `elite/`; the score stack is
   `progression/` (not `score/`); `SpawnControl` and `TheHunt` are `spawn/`; the mixins are
   `mixin/elite/`, `mixin/spawn/` and `client/mixin/`. The two features stay separable in the
@@ -934,10 +964,10 @@ Nothing here is a discovered bug left standing.
   - `elite/EliteRules` — the subset of preset knobs the roll reads. Default `GATHERING_CLOUDS`, its
     numbers read live from `Tuning` rather than copied. `ConfigEliteRules implements EliteRules` and
     calls `EliteRules.install`.
-- Init order, committed in `Escalation.onInitialize` and asserted by `EliteSystems`:
+- Init order, committed in `DireDifficulty.onInitialize` and asserted by `EliteSystems`:
   `ConfigManager.load` → `ConfigEliteRules.register` → `ProgressionScore.register` →
   `EliteSystems.register` (store, then catalogue, then listeners) → `TheHunt.register` →
-  `EscalationCommands.register`. Both plug points are installed before anything can observe the
+  `DireDifficultyCommands.register`. Both plug points are installed before anything can observe the
   built-in fallbacks, and the command tree is last because it names the catalogue and the config.
 
 ### 10.4 Wire format — §6.5's payload is not built, and that is the deviation to re-read at port time
@@ -1001,7 +1031,7 @@ Two format notes so the payload, when it is written, carries the bytes that alre
 10. **Client: no `EliteNameplate`.** The rarity-coloured name is done server-side in `EliteNameTag`,
     wrapping the mob's own `EntityType.getDescription()` so every client resolves it in its own
     language, with **no rarity word** — a word means four new keys, and an untranslated key renders
-    as `elite.escalation.rarity.legendary` over the mob's head, which is worse than no word.
+    as `elite.dire_difficulty.rarity.legendary` over the mob's head, which is worse than no word.
     `EliteClientState.RENDER_KEY` carries the whole `EliteData`, so a nameplate can be added later
     with no new plumbing.
 
@@ -1033,20 +1063,20 @@ Two format notes so the payload, when it is written, carries the bytes that alre
 - Registered on **every** living renderer rather than filtered to `MobCategory.MONSTER`:
   eligibility is a server rule, and mirroring it client-side would fail silently the day it widens.
 
-### 10.7 The test kit — `/escalation`, alias `/advdiff`
+### 10.7 The test kit — `/dire`, alias `/advdiff`
 
 Registered as one node tree with a Brigadier **redirect** for the alias, so the two spellings
 cannot drift and the client is sent one copy of the arguments.
 
 ```
-/escalation score [player]                        combined score + per-source breakdown + the
-                                                  elite chance that score buys
-/escalation info                                  nearest elite within 32 blocks: rarity, hp,
-                                                  scale, affixes, flags, EHP index
-/escalation spawn <entity> [rarity|roll] [affixes…]
-/escalation preset [sunny_day|gathering_clouds|storm_front|hell_on_earth]
-/escalation audit <rarity> <count>                §9.4's roll probe
-/escalation loot <rarity> [count]                 §2.4's table, rolled without a corpse
+/dire score [player]                        combined score + per-source breakdown + the
+                                            elite chance that score buys
+/dire info                                  nearest elite within 32 blocks: rarity, hp,
+                                            scale, affixes, flags, EHP index
+/dire spawn <entity> [rarity|roll] [affixes…]
+/dire preset [sunny_day|gathering_clouds|storm_front|hell_on_earth]
+/dire audit <rarity> <count>                §9.4's roll probe
+/dire loot <rarity> [count]                 §2.4's table, rolled without a corpse
 ```
 
 - **Gate: permission level 2 AND (a player source is in creative | the source has no player).**
@@ -1089,7 +1119,7 @@ cannot drift and the client is sent one copy of the arguments.
    `Mob.finalizeSpawn` resolving and `EliteRoller` refusing `COMMAND` are both proven; the
    `NATURAL` branch, the elite-chance curve at a real spawn and the score-at-a-position resolver
    all need a player in the world.
-5. **Elite loot has never actually dropped.** The table is proven by `/escalation loot`; the
+5. **Elite loot has never actually dropped.** The table is proven by `/dire loot`; the
    player-kill gate and `spawnAtLocation` are not.
 6. **`MobMixin` TAIL is the tail of `Mob`'s own body**, so a subclass's equipment, baby and
    reinforcement work lands *after* the promotion. Nothing should collide — the modifiers are
@@ -1097,7 +1127,7 @@ cannot drift and the client is sent one copy of the arguments.
    in-game is a **baby zombie**, whose size and speed the subclass settles.
 7. **`Tuning` propagation (§9.2) is unproven**: a one-character edit moving `Tuning.class` and
    nothing else. Cheap, and worth doing before the first release.
-8. **`/escalation score` cannot be exercised from the console** — it needs a player, and a
+8. **`/dire score` cannot be exercised from the console** — it needs a player, and a
    headless server has none.
 9. **The oversized-elite pathing consequence of §2.1 is unconfirmed.** Any visible upscale stops a
    zombie fitting a 2-block door. It is accepted as counterplay, but it has not been seen.
@@ -1173,7 +1203,7 @@ indexes a `Tuning` array directly.
 ### 11.2 The elite plate — self-contained, no WTHIT, no Jade
 
 `client/ElitePlateTracker` (input) + `client/ElitePlate` (draw), gated by
-`EscalationConfig.elitePlate`, default on, in the Cloth screen's Elites tab.
+`DireDifficultyConfig.elitePlate`, default on, in the Cloth screen's Elites tab.
 
 ```
                    Zombie                <- the elite's own name, in the rarity colour
@@ -1231,7 +1261,7 @@ F1 for free. The anchor governs draw ORDER only; the plate's Y comes from the li
 
 **No numeric health read-out, deliberately.** Vanilla boss bars have none and Diablo's elite plate
 has none; a "68 / 68" over a 5-pixel bar is the first piece of custom chrome that would make the
-rest look like an overlay. Numbers live in `/escalation info`.
+rest look like an overlay. Numbers live in `/dire info`.
 
 ### 11.3 Wire format — unchanged, and that is the finding
 
@@ -1243,7 +1273,7 @@ are pure readers of state that was already there: no payload, no new attachment,
 predicate, and `EliteStore`/`EliteData` are untouched.
 
 The one thing that did have to be added is **display names**: `Affix.nameKey()`, a default method
-returning `affix.escalation.<id>` derived from the frozen id so a key and an id cannot drift, plus
+returning `affix.dire_difficulty.<id>` derived from the frozen id so a key and an id cannot drift, plus
 25 entries in `en_us.json`. An id this build does not know is *skipped* by the plate rather than
 printed, matching what `Affixes.resolve` does server-side and for the same reason.
 
@@ -1251,9 +1281,9 @@ printed, matching what `Affixes.resolve` does server-side and for the same reaso
 
 | Claim | Evidence |
 |---|---|
-| Build green | `./gradlew build`, zero errors, zero warnings. `buildAndCollect` → `build/libs/0.1.0/escalation-0.1.0+26.2.jar` (164 KB) |
+| Build green | `./gradlew build`, zero errors, zero warnings. `buildAndCollect` → `build/libs/0.1.0/dire_difficulty-0.1.0+26.2.jar` (164 KB) |
 | Headless dedicated server still boots clean | `Done (0.231s)`, **zero ERROR lines, zero WARN lines, zero mixin errors**, clean `stop`, **exit 0**. The render code is client-only, so what this proves is that the common-side changes (`Tuning`, `Rarity`, `Affix.nameKey`, the new config field) break nothing server-side |
-| The plate toggle is genuinely not preset-governed | The server rewrote `run/config/advanced-difficulty-settings.json` with `"elitePlate": true` and `"preset": "GATHERING_CLOUDS"` — `sanitize()` did **not** flip the label to Custom, which it would have if the field had been added below the governed banner |
+| The plate toggle is genuinely not preset-governed | The server rewrote `run/config/advanced-difficulty-settings.json` (the pre-rename file name — see §7.6) with `"elitePlate": true` and `"preset": "GATHERING_CLOUDS"` — `sanitize()` did **not** flip the label to Custom, which it would have if the field had been added below the governed banner |
 
 **Still owed, and it is the same gap §10.8 named**: the whole in-game client pass. Nothing
 rendering-side is proven by compilation. Specifically unseen: the halo reading as a rim rather than
@@ -1300,7 +1330,7 @@ Every elite is named at promotion. The display form is
 | Half | Form | Where it lives |
 |---|---|---|
 | `Grave Lord` | a LITERAL string | generated once, stored in `EliteData.name` |
-| `(Legendary Zombie)` | a `translatable` component, rebuilt every time it is displayed | `elite.escalation.name` + this mod's four `elite.escalation.rarity.*` keys + the mob's own `EntityType.getDescription()` |
+| `(Legendary Zombie)` | a `translatable` component, rebuilt every time it is displayed | `elite.dire_difficulty.name` + this mod's four `elite.dire_difficulty.rarity.*` keys + the mob's own `EntityType.getDescription()` |
 
 Fantasy names are not translated in any game that has them, and a name assembled from lang keys
 would need one key per word and would still come out in English word order everywhere else. The
@@ -1309,13 +1339,13 @@ the mob's own description means this mod ships **no string for any of the severa
 types it can promote**. Measured, straight out of `/data get`:
 
 ```
-{translate: "elite.escalation.name",
- with: ["Grave Lord", {translate: "elite.escalation.rarity.legendary"},
+{translate: "elite.dire_difficulty.name",
+ with: ["Grave Lord", {translate: "elite.dire_difficulty.rarity.legendary"},
                       {translate: "entity.minecraft.zombie"}],
  color: "#FFAA00"}
 ```
 
-**Casing is a lang value, not a code decision.** `elite.escalation.rarity.*` ships capitalised
+**Casing is a lang value, not a code decision.** `elite.dire_difficulty.rarity.*` ships capitalised
 ("Legendary") so the suffix reads consistently against vanilla's own capitalised entity names.
 Lower-casing the entity half in code is not an option that exists — `getDescription()` is a
 component the CLIENT resolves, so case-folding it server-side would first have to bake the
@@ -1349,7 +1379,7 @@ back off disk.
 
 **Backward compatible with no migration.** `name` is `Codec.STRING.optionalFieldOf("name", "")`
 and is written LAST on the wire, so an iteration-1.1 elite already in a world loads clean and
-simply has no fantasy name; `EliteNameTag` falls back to `elite.escalation.name.plain`, i.e.
+simply has no fantasy name; `EliteNameTag` falls back to `elite.dire_difficulty.name.plain`, i.e.
 just the suffix. Observed in the smoke run — a leftover elite from the previous session's world
 printed `name: -` and rendered normally.
 
@@ -1362,7 +1392,7 @@ this thing" and a screen of floating labels during a raid.
 
 **One deviation from §10.5's point 10, and it is the point being reversed on instruction.**
 That entry argued against a rarity WORD because four new keys risk rendering as
-`elite.escalation.rarity.legendary` over a mob's head. The keys now ship, in the same file as
+`elite.dire_difficulty.rarity.legendary` over a mob's head. The keys now ship, in the same file as
 the 25 affix names that already had exactly that exposure, so the risk is the one the mod
 already carries.
 
@@ -1427,7 +1457,7 @@ netherite sword is a different economy from 8.5% on an iron one.
    *preserved*, which is exactly the branch that drops every time AND skips the
    `setDamageValue` line. Nothing in this mod can write one.
 
-**Eligibility is a tag, and it has to be.** `escalation:elite_gear` ships vanilla's humanoid
+**Eligibility is a tag, and it has to be.** `dire_difficulty:elite_gear` ships vanilla's humanoid
 hostile set (zombie family, skeleton family, piglins, illagers). The question the tag answers is
 "does this mob RENDER armour and a held item", and **no runtime property exposes it** — a
 creeper accepts a netherite chestplate, takes the armour points and draws nothing, which is a
@@ -1495,17 +1525,17 @@ the mob still comes back.
 |---|---|
 | Build green | `./gradlew build`, zero errors, zero warnings |
 | Headless dedicated server boots clean | `Done (0.187s)`, **zero ERROR lines, zero WARN lines, zero mixin errors**, clean `stop`, **exit 0** — with the new mixin in the config under `injectors.defaultRequire: 1` |
-| The new injector resolves where it claims to | `javap -c` on the exported `Mob`: `handler$…$escalation$gearDropRules` at offset **0** of `dropCustomDeathLoot`, before `super` and before the equipment loop |
-| Name end to end | `/escalation spawn` + `/data get … CustomName` → `{translate: "elite.escalation.name", with: ["Hollow Lord", {translate: "elite.escalation.rarity.legendary"}, {translate: "entity.minecraft.zombie"}], color: "#FFAA00"}` |
-| Names are varied and affix-related | `/escalation names` — 14/14 distinct at Legendary, 8/8 at Uncommon, 8/8 for skeleton, 8/8 for illager, 6/6 for arthropod. `Sanguinerot` (vampiric), `Bloodwind` (vampiric+swift), `Solar Dawnbringer` (sunwalker), `Summoner of the Gloom` (summoner), `Quake Sigilbearer` (quaking+warded) |
+| The new injector resolves where it claims to | `javap -c` on the exported `Mob`: `handler$…$direDifficulty$gearDropRules` at offset **0** of `dropCustomDeathLoot`, before `super` and before the equipment loop |
+| Name end to end | `/dire spawn` + `/data get … CustomName` → `{translate: "elite.dire_difficulty.name", with: ["Hollow Lord", {translate: "elite.dire_difficulty.rarity.legendary"}, {translate: "entity.minecraft.zombie"}], color: "#FFAA00"}` |
+| Names are varied and affix-related | `/dire names` — 14/14 distinct at Legendary, 8/8 at Uncommon, 8/8 for skeleton, 8/8 for illager, 6/6 for arthropod. `Sanguinerot` (vampiric), `Bloodwind` (vampiric+swift), `Solar Dawnbringer` (sunwalker), `Summoner of the Gloom` (summoner), `Quake Sigilbearer` (quaking+warded) |
 | **Same elite, same name after a reload** | two boots against one world: `Stonechill (Legendary Wither Skeleton)` and its whole equipment set read back identical off disk, zero ERROR/WARN in either boot |
 | Iteration-1 elites still load | a leftover elite with no `name` field deserialised clean and printed `name: -` |
 | Gear ladder | Legendary zombie: `mainhand=Netherite Sword+3, head=Diamond Helmet, chest=Diamond Chestplate+1, legs=Netherite Leggings+2`. Uncommon zombie: `chest=Copper Chestplate@0.085, legs=Copper Leggings@0.085, feet=Golden Boots@0.085` |
 | **Netherite armour never drops** | `drop_chances` NBT: `{mainhand: 0.05f, head: 0.05f, chest: 0.05f, legs: 0.0f}` (netherite legs) and `{head: 0.0f, …}` (netherite helmet) |
 | Tag gate holds | Legendary creeper: `gear: -` |
 | Ranged mobs keep their weapon | Legendary skeleton: `mainhand=Bow@0.085` plus a full armour set |
-| **The toggles are genuinely not preset-governed** | a hand-seeded `{"preset":"HELL_ON_EARTH","eliteGearDrops":false,"allMobGearDrops":false}` loaded with the label **intact** (the "names a preset only" path still fires), and after a later `escalation preset gathering_clouds` the file still read `"eliteGearDrops": false, "allMobGearDrops": false` |
-| Guarantee B1 unaffected | `/escalation audit legendary 4000` → **0 violations**, worst EHP index 5.83 vs the 6.00 ceiling; `uncommon 4000` → 0 violations |
+| **The toggles are genuinely not preset-governed** | a hand-seeded `{"preset":"HELL_ON_EARTH","eliteGearDrops":false,"allMobGearDrops":false}` loaded with the label **intact** (the "names a preset only" path still fires), and after a later `dire preset gathering_clouds` the file still read `"eliteGearDrops": false, "allMobGearDrops": false` |
+| Guarantee B1 unaffected | `/dire audit legendary 4000` → **0 violations**, worst EHP index 5.83 vs the 6.00 ceiling; `uncommon 4000` → 0 violations |
 
 Harnesses: `scratchpad/esc-smoke-gear.sh` (features) and `scratchpad/esc-smoke-reload.sh` (the
 two-boot name-persistence test). Both refuse to run without a pre-existing `eula=true`.
@@ -1519,7 +1549,7 @@ two-boot name-persistence test). Both refuse to run without a pre-existing `eula
 2. **The name has never been SEEN**: over a mob's head under the crosshair, and on the elite
    plate. Both draw the same component, and the plate needed no change, so the risk is layout
    (a Legendary two-part name is long) rather than correctness.
-3. `/escalation names` rolls affixes against the live preset, so its output reflects whatever
+3. `/dire names` rolls affixes against the live preset, so its output reflects whatever
    bonus slots the preset grants. That is deliberate but worth knowing when reading a log.
 4. The gear feature adds one more thing for §10.8's item 6 (`MobMixin` TAIL vs a subclass's own
    finalisation) to confirm in-game — a **baby zombie in a full set** is now the case to look

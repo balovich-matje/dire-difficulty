@@ -1,0 +1,21 @@
+{
+	"required": true,
+	"package": "com.diredifficulty.mixin",
+	"compatibilityLevel": "${java}",
+	"mixins": [
+		"elite.LivingEntityLootMixin",
+		"elite.LivingEntityMixin",
+		"elite.MobGearDropMixin",
+		"elite.MobMixin",
+		"spawn.MobCategoryMixin",
+		"spawn.MobSunMixin",
+		"spawn.MonsterMixin",
+		"spawn.NaturalSpawnerMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	},
+	"overwrites": {
+		"requireAnnotations": true
+	}
+}

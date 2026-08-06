@@ -11,19 +11,19 @@
 	"environment": "*",
 	"entrypoints": {
 		"main": [
-			"com.escalation.Escalation"
+			"com.diredifficulty.DireDifficulty"
 		],
 		"client": [
-			"com.escalation.client.EscalationClient"
+			"com.diredifficulty.client.DireDifficultyClient"
 		],
 		"modmenu": [
-			"com.escalation.client.config.ModMenuIntegration"
+			"com.diredifficulty.client.config.ModMenuIntegration"
 		]
 	},
 	"mixins": [
-		"escalation.mixins.json",
+		"dire_difficulty.mixins.json",
 		{
-			"config": "escalation.client.mixins.json",
+			"config": "dire_difficulty.client.mixins.json",
 			"environment": "client"
 		}
 	],

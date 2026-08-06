@@ -80,7 +80,7 @@ dependencies {
 		"fabric-networking-api-v1", // networking.v1        — EliteStatePayload
 		"fabric-entity-events-v1", // entity.event.v1      — tracking / death hooks
 		"fabric-lifecycle-events-v1", // event.lifecycle.v1   — END_SERVER_TICK (The Hunt)
-		"fabric-command-api-v2", // command.v2           — /escalation debug commands
+		"fabric-command-api-v2", // command.v2           — /dire debug commands
 		"fabric-rendering-v1", // client.rendering.v1  — the elite glow layer
 	)
 
@@ -117,7 +117,7 @@ tasks.withType<JavaCompile>().configureEach {
 	options.encoding = "UTF-8"
 }
 
-// fabric.mod.json lives in `main`, but escalation.client.mixins.json lives in `client` —
+// fabric.mod.json lives in `main`, but dire_difficulty.client.mixins.json lives in `client` —
 // with split source sets there are TWO ProcessResources tasks and both need the
 // substitutions, or the client mixin config ships a literal `${java}`.
 val metadataProps: Map<String, String> = mapOf(
