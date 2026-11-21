@@ -27,8 +27,8 @@ import net.minecraft.world.level.ItemLike;
  * <p><b>A whitelist, and that is the enforcement mechanism, not a stylistic choice.</b> "No
  * building blocks, no decorative clutter" is a promise this mod makes about every elite of
  * every rarity on every future retune. A blacklist would need updating every time the item
- * registry grows and would be wrong silently in between. The seven entries below are the
- * complete set of things an elite can ever drop; nothing can leak in, because there is no path
+ * registry grows and would be wrong silently in between. Iron, gold, emerald, diamond and an
+ * enchanted book are the complete set of things an elite can ever drop; nothing can leak in, because there is no path
  * that adds an item.
  *
  * <p>This class holds the SHAPE. Every amount lives in {@code Tuning}, indexed by rarity.
@@ -80,15 +80,11 @@ public final class EliteLoot {
 		RandomSource random = level.getRandom();
 		List<ItemStack> drops = new ArrayList<>();
 
-		add(drops, Items.IRON_INGOT, roll(random, Tuning.LOOT_IRON_MIN[tier], Tuning.LOOT_IRON_MAX[tier]));
-		add(drops, Items.GOLD_INGOT, roll(random, Tuning.LOOT_GOLD_MIN[tier], Tuning.LOOT_GOLD_MAX[tier]));
-		add(drops, Items.COAL, roll(random, Tuning.LOOT_COAL_MIN[tier], Tuning.LOOT_COAL_MAX[tier]));
-		add(drops, Items.EMERALD, roll(random, Tuning.LOOT_EMERALD_MIN[tier], Tuning.LOOT_EMERALD_MAX[tier]));
-		add(drops, Items.DIAMOND, roll(random, Tuning.LOOT_DIAMOND_MIN[tier], Tuning.LOOT_DIAMOND_MAX[tier]));
-		add(drops, Items.ENDER_PEARL,
-				roll(random, Tuning.LOOT_ENDER_PEARL_MIN[tier], Tuning.LOOT_ENDER_PEARL_MAX[tier]));
-		add(drops, Items.NETHERITE_SCRAP,
-				roll(random, Tuning.LOOT_NETHERITE_SCRAP_MIN[tier], Tuning.LOOT_NETHERITE_SCRAP_MAX[tier]));
+		ItemLike material = pickMaterial(random, tier);
+
+		if (material != null) {
+			add(drops, material, roll(random, Tuning.LOOT_MATERIAL_MIN[tier], Tuning.LOOT_MATERIAL_MAX[tier]));
+		}
 
 		int books = roll(random, Tuning.LOOT_BOOK_MIN[tier], Tuning.LOOT_BOOK_MAX[tier]);
 
@@ -127,6 +123,34 @@ public final class EliteLoot {
 	 */
 	private static boolean wasPlayerKilled(final LivingEntity entity, final DamageSource source) {
 		return entity.getKillCredit() instanceof Player || source.getEntity() instanceof Player;
+	}
+
+	/** One material by weight from the tier's column, or {@code null} when the column is empty. */
+	private static ItemLike pickMaterial(final RandomSource random, final int tier) {
+		ItemLike[] items = {Items.IRON_INGOT, Items.GOLD_INGOT, Items.EMERALD, Items.DIAMOND};
+		int[] weights = {Tuning.LOOT_WEIGHT_IRON[tier], Tuning.LOOT_WEIGHT_GOLD[tier],
+				Tuning.LOOT_WEIGHT_EMERALD[tier], Tuning.LOOT_WEIGHT_DIAMOND[tier]};
+		int total = 0;
+
+		for (int weight : weights) {
+			total += weight;
+		}
+
+		if (total <= 0) {
+			return null;
+		}
+
+		int pick = random.nextInt(total);
+
+		for (int i = 0; i < items.length; i++) {
+			pick -= weights[i];
+
+			if (pick < 0) {
+				return items[i];
+			}
+		}
+
+		return null;
 	}
 
 	private static int roll(final RandomSource random, final int min, final int max) {

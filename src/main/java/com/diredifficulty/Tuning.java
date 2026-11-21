@@ -335,29 +335,23 @@ public final class Tuning {
 	// does NOT multiply any of this — the rarity IS the reward multiplier.
 	// =================================================================================
 
-	public static final int[] LOOT_IRON_MIN = {4, 10, 18, 30};
-	public static final int[] LOOT_IRON_MAX = {9, 18, 30, 48};
+	/*
+	 * ONE material per kill, picked by weight from the tier's column, 1-2 of it. Elites
+	 * must never make mining pointless (user decision 2026-11-21): uncommon drops no
+	 * material, rare only iron, epic iron or gold, legendary any of the four.
+	 * Columns: uncommon, rare, epic, legendary.
+	 */
+	public static final int[] LOOT_WEIGHT_IRON = {0, 1, 3, 4};
+	public static final int[] LOOT_WEIGHT_GOLD = {0, 0, 2, 3};
+	public static final int[] LOOT_WEIGHT_EMERALD = {0, 0, 0, 2};
+	public static final int[] LOOT_WEIGHT_DIAMOND = {0, 0, 0, 1};
 
-	public static final int[] LOOT_GOLD_MIN = {1, 4, 8, 14};
-	public static final int[] LOOT_GOLD_MAX = {3, 8, 14, 24};
+	public static final int[] LOOT_MATERIAL_MIN = {0, 1, 1, 1};
+	public static final int[] LOOT_MATERIAL_MAX = {0, 2, 2, 2};
 
-	public static final int[] LOOT_COAL_MIN = {2, 0, 0, 0};
-	public static final int[] LOOT_COAL_MAX = {6, 0, 0, 0};
-
-	public static final int[] LOOT_EMERALD_MIN = {0, 2, 4, 8};
-	public static final int[] LOOT_EMERALD_MAX = {0, 4, 8, 14};
-
-	public static final int[] LOOT_DIAMOND_MIN = {0, 0, 1, 3};
-	public static final int[] LOOT_DIAMOND_MAX = {0, 1, 3, 6};
-
-	public static final int[] LOOT_ENDER_PEARL_MIN = {0, 0, 1, 0};
-	public static final int[] LOOT_ENDER_PEARL_MAX = {0, 0, 2, 0};
-
-	public static final int[] LOOT_NETHERITE_SCRAP_MIN = {0, 0, 0, 0};
-	public static final int[] LOOT_NETHERITE_SCRAP_MAX = {0, 0, 0, 1};
-
-	public static final int[] LOOT_BOOK_MIN = {0, 1, 1, 2};
-	public static final int[] LOOT_BOOK_MAX = {1, 1, 2, 2};
+	/** Enchanted books: legendary only, one per kill. */
+	public static final int[] LOOT_BOOK_MIN = {0, 0, 0, 1};
+	public static final int[] LOOT_BOOK_MAX = {0, 0, 0, 1};
 
 	/**
 	 * Enchantment cost handed to vanilla's own book roller, per rarity. These are the

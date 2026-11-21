@@ -1577,3 +1577,7 @@ Changes from it:
    vanilla; would need light blocks or LambDynamicLights interop) — option for later.
 2. **Guarantee A retired** (user decision): no one-shot ceiling; elites can kill a full-health
    player in one hit. `ELITE_HIT_CEILING` removed. Guarantee B (never unkillable) stays.
+
+### 13.x Loot nerf (2026-11-21, user decision)
+
+Elites must never make mining pointless. One material per kill, by weight from the tier's column, 1-2 of it: uncommon none, rare iron, epic iron/gold, legendary iron/gold/emerald/diamond. Enchanted books legendary only, one. Coal, ender pearls and netherite scrap dropped from the whitelist. Numbers in `Tuning` LOOT_WEIGHT_* / LOOT_MATERIAL_* / LOOT_BOOK_*.
