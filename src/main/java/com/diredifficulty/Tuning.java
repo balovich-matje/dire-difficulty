@@ -33,24 +33,51 @@ public final class Tuning {
 	// what keeps the house rule literally true rather than approximately true.
 	// =================================================================================
 
-	/** Completed non-recipe advancements that normalise the advancement source to 1.0. */
-	public static final int SCORE_ADVANCEMENT_TARGET = 40;
-
-	/**
-	 * Summed Skill Proficiencies levels that normalise that source to 1.0. Their ceiling is
-	 * 15 skills x level 100 = 1500; 900 means "an average of 60 per skill counts as done",
-	 * so the source saturates before the grind does.
-	 */
-	public static final int SCORE_SKILL_TOTAL_TARGET = 900;
-
-	/** Archetypes' own level cap. Read live from their class when they are installed; this is the fallback. */
-	public static final int SCORE_ARCHETYPES_MAX_LEVEL = 60;
-
 	/**
 	 * Radius, in blocks, of the player search that turns per-player scores into the score at
 	 * a position. 128 matches vanilla's own {@code NaturalSpawner.SPAWN_DISTANCE_BLOCK}, so a
 	 * spawn that vanilla considered "near a player" is scored by that same player.
 	 */
+	// ---- Progression stage (2026-11-21). Four vanilla statistics, each eased-out to its
+	// target and weighted; the weights sum to 1, so no single factor can carry the stage
+	// past its own weight, and every factor shows diminishing returns on the way there.
+	// The world difficulty then caps the result.
+
+	public static final double STAGE_WEIGHT_ADVANCEMENTS = 0.35;
+	public static final double STAGE_WEIGHT_KILLS = 0.25;
+	public static final double STAGE_WEIGHT_DISTANCE = 0.20;
+	public static final double STAGE_WEIGHT_SURVIVAL = 0.20;
+
+	/** Completed advancements (recipe unlocks excluded) for that factor to be full. */
+	public static final int STAGE_TARGET_ADVANCEMENTS = 60;
+	/** Hostile mobs killed for that factor to be full. */
+	public static final int STAGE_TARGET_KILLS = 1000;
+	/** Blocks travelled (walking, swimming, riding, gliding — not creative flight). */
+	public static final double STAGE_TARGET_DISTANCE = 100_000.0;
+	/** Ticks since the last death; 216000 = 3 hours alive. A death resets this factor. */
+	public static final int STAGE_TARGET_SURVIVAL_TICKS = 216_000;
+
+	public static final double STAGE_CAP_PEACEFUL = 0.0;
+	public static final double STAGE_CAP_EASY = 0.25;
+	public static final double STAGE_CAP_NORMAL = 0.5;
+	public static final double STAGE_CAP_HARD = 1.0;
+
+	/** Spawn multipliers reached at stage 1 (config defaults; stage 0 is vanilla). */
+	public static final double STAGE_SPAWN_FREQUENCY_MAX = 2.0;
+	public static final double STAGE_MOB_CAP_MAX = 1.75;
+	public static final double STAGE_DESPAWN_DISTANCE_MAX = 1.6;
+
+	/** Ease-out: fast early, slower near the target, exactly 1 at the target. */
+	public static double easeOut(final double value, final double target) {
+		double c = clamp01(value / Math.max(1.0E-9, target));
+		return 1.0 - (1.0 - c) * (1.0 - c);
+	}
+
+	/** Linear from 1.0 (vanilla) at stage 0 to {@code atMax} at stage 1. */
+	public static double stageLerp(final double stage, final double atMax) {
+		return 1.0 + (atMax - 1.0) * clamp01(stage);
+	}
+
 	public static final double SCORE_RADIUS = 128.0;
 
 	/**
@@ -64,7 +91,10 @@ public final class Tuning {
 	public static final double ELITE_CHANCE_MIN = 0.01;
 
 	/** The curve's published ceiling. Each preset stamps its own max over this. */
-	public static final double ELITE_CHANCE_MAX = 0.18;
+	public static final double ELITE_CHANCE_MAX = 0.35;
+
+	/** Highest rarity the normal roll can draw (Legendary). Mythical has its own spawn path. */
+	public static final int MAX_RARITY_TIER = 4;
 
 	public static final double ELITE_CHANCE_EXP = 1.6;
 
@@ -112,13 +142,6 @@ public final class Tuning {
 	// SPAWN CONTROL — docs/DESIGN.md §5.2
 	// =================================================================================
 
-	/** Progression's contribution to the spawn rate. 0.0 = OFF, which is the default. */
-	public static final double SPAWN_RATE_MAX_BONUS = 0.0;
-
-	/** {@code 1 + bonus * score}. At the default bonus this is a constant 1.0 and costs nothing. */
-	public static double spawnRateMultiplier(final double score, final double maxBonus) {
-		return 1.0 + Math.max(0.0, maxBonus) * clamp01(score);
-	}
 
 	/**
 	 * Hard ceiling on the spawn-frequency multiplier, applied after the preset knob and the
@@ -163,82 +186,6 @@ public final class Tuning {
 	 * re-evaluates against {@code FOLLOW_RANGE}; this is what makes the hand-out stick.
 	 */
 	public static final double HUNT_FOLLOW_RANGE = 100.0;
-
-	// =================================================================================
-	// PRESETS — docs/DESIGN.md §8
-	//
-	// Preset.java holds the SHAPE (which fields a preset governs, and how selecting one
-	// stamps them); every NUMBER a preset stamps lives here. Same split as EliteLoot's.
-	// =================================================================================
-
-	// ---- 8.1 Sunny Day: gentler than vanilla; elites are a rare treat, never a threat.
-
-	public static final double PRESET_SUNNY_ELITE_CHANCE_MAX = 0.03;
-	public static final int PRESET_SUNNY_MAX_RARITY_TIER = 1;
-	public static final double PRESET_SUNNY_LEGENDARY_WEIGHT_FLOOR = 0.0;
-	public static final int PRESET_SUNNY_BONUS_BUDGET = 0;
-	public static final int PRESET_SUNNY_BONUS_SLOTS = 0;
-	public static final int PRESET_SUNNY_BONUS_FROM_TIER = 1;
-	public static final boolean PRESET_SUNNY_IGNORE_PROGRESSION = false;
-	public static final boolean PRESET_SUNNY_DAY_SPAWNING = false;
-	public static final boolean PRESET_SUNNY_DAY_SPAWN_BURN_IMMUNITY = true;
-	public static final double PRESET_SUNNY_SPAWN_FREQUENCY = 1.0;
-	public static final double PRESET_SUNNY_MOB_CAP = 0.85;
-	public static final double PRESET_SUNNY_DESPAWN_DISTANCE = 0.85;
-	public static final boolean PRESET_SUNNY_THE_HUNT = false;
-
-	// ---- 8.2 Gathering Clouds: the intended default. Vanilla, plus an elite layer that grows.
-
-	public static final double PRESET_CLOUDS_ELITE_CHANCE_MAX = 0.10;
-	public static final int PRESET_CLOUDS_MAX_RARITY_TIER = 3;
-	public static final double PRESET_CLOUDS_LEGENDARY_WEIGHT_FLOOR = 0.0;
-	public static final int PRESET_CLOUDS_BONUS_BUDGET = 0;
-	public static final int PRESET_CLOUDS_BONUS_SLOTS = 0;
-	public static final int PRESET_CLOUDS_BONUS_FROM_TIER = 1;
-	public static final boolean PRESET_CLOUDS_IGNORE_PROGRESSION = false;
-	public static final boolean PRESET_CLOUDS_DAY_SPAWNING = false;
-	public static final boolean PRESET_CLOUDS_DAY_SPAWN_BURN_IMMUNITY = true;
-	public static final double PRESET_CLOUDS_SPAWN_FREQUENCY = 1.0;
-	public static final double PRESET_CLOUDS_MOB_CAP = 1.0;
-	public static final double PRESET_CLOUDS_DESPAWN_DISTANCE = 1.0;
-	public static final boolean PRESET_CLOUDS_THE_HUNT = false;
-
-	// ---- 8.3 Storm Front: for a party with an Archetypes build online. Elites are the content.
-
-	public static final double PRESET_STORM_ELITE_CHANCE_MAX = 0.22;
-	public static final int PRESET_STORM_MAX_RARITY_TIER = 4;
-	public static final double PRESET_STORM_LEGENDARY_WEIGHT_FLOOR = 0.0;
-	public static final int PRESET_STORM_BONUS_BUDGET = 2;
-	public static final int PRESET_STORM_BONUS_SLOTS = 1;
-	/** Epic and Legendary only — 3 is the Epic tier. */
-	public static final int PRESET_STORM_BONUS_FROM_TIER = 3;
-	public static final boolean PRESET_STORM_IGNORE_PROGRESSION = false;
-	public static final boolean PRESET_STORM_DAY_SPAWNING = false;
-	public static final boolean PRESET_STORM_DAY_SPAWN_BURN_IMMUNITY = true;
-	public static final double PRESET_STORM_SPAWN_FREQUENCY = 1.5;
-	public static final double PRESET_STORM_MOB_CAP = 1.35;
-	public static final double PRESET_STORM_DESPAWN_DISTANCE = 1.25;
-	public static final boolean PRESET_STORM_THE_HUNT = false;
-
-	// ---- 8.4 Hell on Earth: progression ignored; the world is already at maximum.
-	//
-	// Guarantees A and B still hold here. The ceiling and the EHP audit are NOT preset knobs
-	// and nothing in this block can reach them.
-
-	public static final double PRESET_HELL_ELITE_CHANCE_MAX = 0.35;
-	public static final int PRESET_HELL_MAX_RARITY_TIER = 4;
-	/** Legendaries appear from the first night instead of waiting on the quadratic. */
-	public static final double PRESET_HELL_LEGENDARY_WEIGHT_FLOOR = 8.0;
-	public static final int PRESET_HELL_BONUS_BUDGET = 3;
-	public static final int PRESET_HELL_BONUS_SLOTS = 1;
-	public static final int PRESET_HELL_BONUS_FROM_TIER = 1;
-	public static final boolean PRESET_HELL_IGNORE_PROGRESSION = true;
-	public static final boolean PRESET_HELL_DAY_SPAWNING = true;
-	public static final boolean PRESET_HELL_DAY_SPAWN_BURN_IMMUNITY = true;
-	public static final double PRESET_HELL_SPAWN_FREQUENCY = 2.0;
-	public static final double PRESET_HELL_MOB_CAP = 1.75;
-	public static final double PRESET_HELL_DESPAWN_DISTANCE = 1.6;
-	public static final boolean PRESET_HELL_THE_HUNT = true;
 
 	// =================================================================================
 	// THE RARITY LADDER — docs/DESIGN.md §2.1

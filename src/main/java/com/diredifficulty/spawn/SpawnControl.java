@@ -7,6 +7,7 @@ import java.util.function.Predicate;
 import com.diredifficulty.Tuning;
 import com.diredifficulty.config.ConfigManager;
 import com.diredifficulty.config.DireDifficultyConfig;
+import com.diredifficulty.progression.ProgressionScore;
 import com.diredifficulty.progression.ScoreSource;
 
 import net.minecraft.core.BlockPos;
@@ -69,7 +70,8 @@ public final class SpawnControl {
 
 	/** True when the light gate should be forced open. */
 	public static boolean daySpawningEnabled() {
-		return ConfigManager.get().daySpawning;
+		DireDifficultyConfig config = ConfigManager.get();
+		return config.modifySpawns && config.daySpawning;
 	}
 
 	// =====================================================================================
@@ -84,7 +86,7 @@ public final class SpawnControl {
 
 		// Only while day spawning is actually on. A server that turns day spawning off must
 		// get vanilla burning back in the same edit, without a second knob to remember.
-		if (config.daySpawning && config.daySpawnBurnImmunity) {
+		if (config.modifySpawns && config.daySpawning && config.daySpawnBurnImmunity) {
 			return true;
 		}
 
@@ -110,7 +112,7 @@ public final class SpawnControl {
 	 * so the default config is bit-for-bit vanilla behaviour rather than vanilla-plus-noise.
 	 *
 	 * <p>The progression term is skipped entirely unless the player opted into it
-	 * ({@link DireDifficultyConfig#spawnRateProgressionBonus}, 0.0 by default). This runs once per
+	 * (stage-scaled up to {@link DireDifficultyConfig#spawnFrequencyAtMax}). This runs once per
 	 * spawning chunk per tick, so the default path must not touch the score at all.
 	 *
 	 * <p>When it IS on, the score is read at the chunk's centre column at sea level. That is a
@@ -120,14 +122,13 @@ public final class SpawnControl {
 	 */
 	public static int spawnPasses(final ServerLevel level, final ChunkPos chunkPos) {
 		DireDifficultyConfig config = ConfigManager.get();
-		double multiplier = config.spawnFrequencyMultiplier;
-
-		if (config.spawnRateProgressionBonus > 0.0) {
-			BlockPos probe = new BlockPos(chunkPos.getMiddleBlockX(), level.getSeaLevel(), chunkPos.getMiddleBlockZ());
-			double score = ScoreSource.active().scoreAt(level, probe);
-			multiplier *= Tuning.spawnRateMultiplier(score, config.spawnRateProgressionBonus);
+		if (!config.modifySpawns) {
+			return 1;
 		}
 
+		BlockPos probe = new BlockPos(chunkPos.getMiddleBlockX(), level.getSeaLevel(), chunkPos.getMiddleBlockZ());
+		double stage = ScoreSource.active().scoreAt(level, probe);
+		double multiplier = Tuning.stageLerp(stage, config.spawnFrequencyAtMax);
 		multiplier = Tuning.clamp(multiplier, 0.0, Tuning.SPAWN_FREQUENCY_MAX);
 
 		int passes = (int) multiplier;
@@ -161,7 +162,14 @@ public final class SpawnControl {
 
 		// Never 0: a zero cap stops monster spawning entirely, which is a different feature
 		// than "fewer monsters" and is not what any preset asks for.
-		return Math.max(1, (int) Math.round(vanilla * ConfigManager.get().mobCapMultiplier));
+		DireDifficultyConfig config = ConfigManager.get();
+
+		if (!config.modifySpawns) {
+			return vanilla;
+		}
+
+		return Math.max(1, (int) Math.round(vanilla
+				* Tuning.stageLerp(ProgressionScore.INSTANCE.highestOnline(), config.mobCapAtMax)));
 	}
 
 	/** The distance beyond which a monster may despawn at random, scaled. */
@@ -185,6 +193,13 @@ public final class SpawnControl {
 			return vanilla;
 		}
 
-		return Math.max(1, (int) Math.round(vanilla * ConfigManager.get().despawnDistanceMultiplier));
+		DireDifficultyConfig config = ConfigManager.get();
+
+		if (!config.modifySpawns) {
+			return vanilla;
+		}
+
+		return Math.max(1, (int) Math.round(vanilla
+				* Tuning.stageLerp(ProgressionScore.INSTANCE.highestOnline(), config.despawnDistanceAtMax)));
 	}
 }

@@ -7,6 +7,7 @@ import com.diredifficulty.DireDifficulty;
 import com.diredifficulty.Tuning;
 import com.diredifficulty.affix.Affix;
 import com.diredifficulty.affix.AffixBudget;
+import com.diredifficulty.config.ConfigManager;
 import com.diredifficulty.progression.ScoreSource;
 
 import net.minecraft.core.registries.Registries;
@@ -67,16 +68,14 @@ public final class EliteRoller {
 	 */
 	public static void onFinalizeSpawn(final Mob mob, final ServerLevelAccessor accessor,
 			final EntitySpawnReason reason) {
-		if (!isRollableReason(reason) || !isEligible(mob)) {
+		if (!ConfigManager.get().spawnElites || !isRollableReason(reason) || !isEligible(mob)) {
 			return;
 		}
 
 		ServerLevel level = accessor.getLevel();
 		EliteRules rules = EliteRules.active();
 		RandomSource random = level.getRandom();
-		double score = rules.ignoreProgression()
-				? 1.0
-				: ScoreSource.active().scoreAt(level, mob.blockPosition());
+		double score = ScoreSource.active().scoreAt(level, mob.blockPosition());
 
 		if (random.nextDouble() >= Tuning.eliteChance(score, rules.eliteChanceMax())) {
 			return;

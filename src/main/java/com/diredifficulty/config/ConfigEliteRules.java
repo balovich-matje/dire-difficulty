@@ -1,24 +1,13 @@
 package com.diredifficulty.config;
 
+import com.diredifficulty.Tuning;
 import com.diredifficulty.affix.AffixClass;
 import com.diredifficulty.elite.EliteRules;
 
 /**
- * The config system's implementation of {@link EliteRules} — the elite core's preset plug
- * point, backed by the loaded {@link DireDifficultyConfig}.
- *
- * <p><b>Every accessor reads the live config on every call</b>, deliberately, rather than
- * snapshotting values at install time. The Cloth screen mutates the held instance in place, so
- * a snapshot would leave a player who just changed a preset playing the old one until restart —
- * with no error and nothing to see. Reading live also means there is exactly one copy of these
- * numbers in memory, which is the same "read live, never mirror" rule the compat bridges follow
- * for the sibling mods' values.
- *
- * <p><b>The elite core never reads a preset.</b> {@code docs/DESIGN.md} §8's semantics are that
- * selecting a preset STAMPS individual fields; there is no hidden override layer, and what the
- * config file says is what runs. So this class reads stamped fields and never
- * {@link DireDifficultyConfig#preset} — the preset name is a label, and a label is not an input to
- * the game.
+ * The installed elite rules. Since presets were retired (2026-11-21) these are fixed numbers
+ * from {@code Tuning}: the progression stage alone moves elite chance and rarity, and the
+ * world difficulty caps the stage.
  */
 public final class ConfigEliteRules implements EliteRules {
 	public static final ConfigEliteRules INSTANCE = new ConfigEliteRules();
@@ -26,51 +15,47 @@ public final class ConfigEliteRules implements EliteRules {
 	private ConfigEliteRules() {
 	}
 
-	/** Install these rules over the built-in Gathering Clouds defaults. Called from common init. */
 	public static void register() {
 		EliteRules.install(INSTANCE);
 	}
 
 	@Override
 	public double eliteChanceMax() {
-		return ConfigManager.get().eliteChanceMax;
+		return Tuning.ELITE_CHANCE_MAX;
 	}
 
 	@Override
 	public int maxRarityTier() {
-		return ConfigManager.get().maxRarityTier;
+		return Tuning.MAX_RARITY_TIER;
 	}
 
 	@Override
 	public double legendaryWeightFloor() {
-		return ConfigManager.get().legendaryWeightFloor;
+		return 0.0;
 	}
 
 	@Override
 	public int bonusBudget() {
-		return ConfigManager.get().bonusAffixBudget;
+		return 0;
 	}
 
 	@Override
 	public int bonusSlots() {
-		return ConfigManager.get().bonusAffixSlots;
+		return 0;
 	}
 
 	@Override
 	public int bonusFromTier() {
-		return ConfigManager.get().bonusFromRarityTier;
+		return 1;
 	}
 
 	@Override
 	public boolean ignoreProgression() {
-		return ConfigManager.get().ignoreProgression;
+		return false;
 	}
 
 	@Override
 	public boolean allows(final AffixClass affixClass) {
-		// The config stores class names as strings, not as this enum: the file has to survive
-		// the catalogue growing, and an unknown name must be ignored rather than fail to parse
-		// the whole config. The enum name is the contract between the two.
-		return ConfigManager.get().affixClassAllowed(affixClass.name());
+		return true;
 	}
 }

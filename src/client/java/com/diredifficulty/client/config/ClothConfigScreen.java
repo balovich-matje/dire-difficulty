@@ -1,10 +1,8 @@
 package com.diredifficulty.client.config;
 
 import com.diredifficulty.Tuning;
-import com.diredifficulty.config.CombineMode;
 import com.diredifficulty.config.ConfigManager;
 import com.diredifficulty.config.DireDifficultyConfig;
-import com.diredifficulty.config.Preset;
 
 import me.shedaniel.clothconfig2.api.ConfigBuilder;
 import me.shedaniel.clothconfig2.api.ConfigCategory;
@@ -14,246 +12,67 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
 /**
- * Builds the Cloth Config screen for our knobs, mirroring Skill Proficiencies'
- * {@code client/config/ClothConfigScreen} structure: the save consumers mutate the live
- * {@link ConfigManager#get()} instance in place, and {@code setSavingRunnable} persists (and
- * sanitizes) it.
- *
- * <p>Kept in its own class so it is only ever class-loaded once Cloth Config is confirmed
- * present (see {@link ModMenuIntegration}), which is what keeps Cloth a soft dependency. The
- * Gson config file is the real interface; this screen is a convenience on top of it, and every
- * knob here is also editable by hand.
- *
- * <h2>The preset dropdown, which is the only non-obvious widget on the screen</h2>
- *
- * <p>{@code docs/DESIGN.md} §8: selecting a preset STAMPS the individual fields, and editing
- * any stamped field flips the preset to {@link Preset#CUSTOM}. Cloth runs every save consumer
- * and then the saving runnable, in an order this screen does not control, so "did the player
- * touch the dropdown?" has to be answered by comparing against the preset the screen OPENED
- * with rather than by widget ordering:
- *
- * <ul>
- * <li><b>Dropdown changed</b> — the player made a deliberate choice, so it is stamped, and it
- *     wins over any field they also edited in the same session. Picking "Hell on Earth" and
- *     getting Hell on Earth is the only behaviour that is not a surprise.</li>
- * <li><b>Dropdown unchanged, a field edited</b> — nothing is stamped, and
- *     {@link DireDifficultyConfig#sanitize()} moves the label to Custom on save. No hidden
- *     override layer: what the file says is what runs.</li>
- * </ul>
- *
- * <h2>Ranges</h2>
- *
- * <p>Every {@code setMin}/{@code setMax} below matches {@link DireDifficultyConfig#sanitize()}
- * exactly. The widget clamps what this screen can produce and {@code sanitize()} clamps a
- * hand-edited file; if the two disagreed the screen would show the player a value the mod
- * never uses. Defaults are {@link Tuning} constants for the same reason there are no numeric
- * literals in the config class.
- *
- * <p>Port note: Cloth and Mod Menu are gated to the newer versions only, so on the legacy nodes
- * this whole package leaves the client source set and the config file is the entire UI. That is
- * why nothing in the mod is reachable ONLY from this screen.
+ * The Mod Menu settings screen: General, Elites, Spawning. No presets since 2026-11-21 — the
+ * world difficulty sets how far progression can push the game.
  */
 public final class ClothConfigScreen {
+	private static final String KEY = "config.dire_difficulty.";
+
 	private ClothConfigScreen() {
 	}
 
 	public static Screen create(final Screen parent) {
 		DireDifficultyConfig config = ConfigManager.get();
-
-		// The preset this screen opened with. See the class javadoc — this is what makes
-		// "the player touched the dropdown" answerable without depending on Cloth's save order.
-		Preset opened = config.preset;
-
 		ConfigBuilder builder = ConfigBuilder.create()
 				.setParentScreen(parent)
-				.setTitle(Component.translatable("config.dire_difficulty.title"))
-				.setSavingRunnable(() -> {
-					if (config.preset != opened && config.preset != Preset.CUSTOM) {
-						config.preset.stamp(config);
-					}
-
-					ConfigManager.save();
-				});
-
+				.setTitle(Component.translatable(KEY + "title"))
+				.setSavingRunnable(ConfigManager::save);
 		ConfigEntryBuilder eb = builder.entryBuilder();
 
-		buildPresets(builder, eb, config);
-		buildProgression(builder, eb, config);
-		buildElites(builder, eb, config);
-		buildSpawning(builder, eb, config);
+		ConfigCategory general = builder.getOrCreateCategory(Component.translatable(KEY + "category.general"));
+		general.addEntry(eb.startTextDescription(Component.translatable(KEY + "category.general.tooltip")).build());
+		general.addEntry(toggle(eb, "spawnElites", config.spawnElites, true, v -> config.spawnElites = v));
+		general.addEntry(toggle(eb, "modifySpawns", config.modifySpawns, true, v -> config.modifySpawns = v));
+		general.addEntry(toggle(eb, "theHunt", config.theHunt, true, v -> config.theHunt = v));
+
+		ConfigCategory elites = builder.getOrCreateCategory(Component.translatable(KEY + "category.elites"));
+		elites.addEntry(toggle(eb, "elitePlate", config.elitePlate, true, v -> config.elitePlate = v));
+		elites.addEntry(toggle(eb, "eliteGearDrops", config.eliteGearDrops, false, v -> config.eliteGearDrops = v));
+		elites.addEntry(toggle(eb, "eliteGlow", config.eliteGlow, true, v -> config.eliteGlow = v));
+
+		ConfigCategory spawning = builder.getOrCreateCategory(Component.translatable(KEY + "category.spawning"));
+		spawning.addEntry(toggle(eb, "daySpawning", config.daySpawning, false, v -> config.daySpawning = v));
+		spawning.addEntry(toggle(eb, "daySpawnBurnImmunity", config.daySpawnBurnImmunity, true,
+				v -> config.daySpawnBurnImmunity = v));
+		spawning.addEntry(eb.startDoubleField(Component.translatable(KEY + "spawnFrequencyAtMax"), config.spawnFrequencyAtMax)
+				.setDefaultValue(Tuning.STAGE_SPAWN_FREQUENCY_MAX)
+				.setMin(1.0).setMax(Tuning.SPAWN_FREQUENCY_MAX)
+				.setTooltip(Component.translatable(KEY + "spawnFrequencyAtMax.tooltip"))
+				.setSaveConsumer(v -> config.spawnFrequencyAtMax = v)
+				.build());
+		spawning.addEntry(eb.startDoubleField(Component.translatable(KEY + "mobCapAtMax"), config.mobCapAtMax)
+				.setDefaultValue(Tuning.STAGE_MOB_CAP_MAX)
+				.setMin(1.0).setMax(Tuning.MOB_CAP_MULTIPLIER_MAX)
+				.setTooltip(Component.translatable(KEY + "mobCapAtMax.tooltip"))
+				.setSaveConsumer(v -> config.mobCapAtMax = v)
+				.build());
+		spawning.addEntry(eb.startDoubleField(Component.translatable(KEY + "despawnDistanceAtMax"), config.despawnDistanceAtMax)
+				.setDefaultValue(Tuning.STAGE_DESPAWN_DISTANCE_MAX)
+				.setMin(1.0).setMax(Tuning.DESPAWN_MULTIPLIER_MAX)
+				.setTooltip(Component.translatable(KEY + "despawnDistanceAtMax.tooltip"))
+				.setSaveConsumer(v -> config.despawnDistanceAtMax = v)
+				.build());
 
 		return builder.build();
 	}
 
-	private static void buildPresets(final ConfigBuilder builder, final ConfigEntryBuilder eb, final DireDifficultyConfig config) {
-		ConfigCategory presets = builder.getOrCreateCategory(Component.translatable("config.dire_difficulty.category.presets"));
-
-		presets.addEntry(eb.startTextDescription(Component.translatable("config.dire_difficulty.category.presets.tooltip")).build());
-
-		presets.addEntry(eb.startEnumSelector(Component.translatable("config.dire_difficulty.preset"), Preset.class, config.preset)
-				.setDefaultValue(Preset.DEFAULT)
-				.setEnumNameProvider(value -> Component.translatable(((Preset) value).translationKey()))
-				.setTooltip(Component.translatable("config.dire_difficulty.preset.tooltip"))
-				.setSaveConsumer(value -> config.preset = value)
-				.build());
-	}
-
-	private static void buildProgression(final ConfigBuilder builder, final ConfigEntryBuilder eb, final DireDifficultyConfig config) {
-		ConfigCategory progression = builder.getOrCreateCategory(Component.translatable("config.dire_difficulty.category.progression"));
-
-		progression.addEntry(eb.startBooleanToggle(Component.translatable("config.dire_difficulty.scoreAdvancements"), config.scoreAdvancements)
-				.setDefaultValue(true)
-				.setTooltip(Component.translatable("config.dire_difficulty.scoreAdvancements.tooltip"))
-				.setSaveConsumer(value -> config.scoreAdvancements = value)
-				.build());
-		progression.addEntry(eb.startBooleanToggle(Component.translatable("config.dire_difficulty.scoreArchetypes"), config.scoreArchetypes)
-				.setDefaultValue(true)
-				.setTooltip(Component.translatable("config.dire_difficulty.scoreArchetypes.tooltip"))
-				.setSaveConsumer(value -> config.scoreArchetypes = value)
-				.build());
-		progression.addEntry(eb.startBooleanToggle(Component.translatable("config.dire_difficulty.scoreSkillProficiencies"), config.scoreSkillProficiencies)
-				.setDefaultValue(true)
-				.setTooltip(Component.translatable("config.dire_difficulty.scoreSkillProficiencies.tooltip"))
-				.setSaveConsumer(value -> config.scoreSkillProficiencies = value)
-				.build());
-
-		progression.addEntry(eb.startEnumSelector(Component.translatable("config.dire_difficulty.combineMode"), CombineMode.class, config.combineMode)
-				.setDefaultValue(CombineMode.MAX)
-				.setEnumNameProvider(value -> Component.translatable(((CombineMode) value).translationKey()))
-				.setTooltip(Component.translatable("config.dire_difficulty.combineMode.tooltip"))
-				.setSaveConsumer(value -> config.combineMode = value)
-				.build());
-
-		progression.addEntry(eb.startIntField(Component.translatable("config.dire_difficulty.advancementTarget"), config.advancementTarget)
-				.setDefaultValue(Tuning.SCORE_ADVANCEMENT_TARGET)
-				.setMin(1).setMax(1000)
-				.setTooltip(Component.translatable("config.dire_difficulty.advancementTarget.tooltip"))
-				.setSaveConsumer(value -> config.advancementTarget = value)
-				.build());
-		progression.addEntry(eb.startIntField(Component.translatable("config.dire_difficulty.skillTotalTarget"), config.skillTotalTarget)
-				.setDefaultValue(Tuning.SCORE_SKILL_TOTAL_TARGET)
-				.setMin(1).setMax(1500)
-				.setTooltip(Component.translatable("config.dire_difficulty.skillTotalTarget.tooltip"))
-				.setSaveConsumer(value -> config.skillTotalTarget = value)
-				.build());
-
-		progression.addEntry(eb.startDoubleField(Component.translatable("config.dire_difficulty.spawnRateProgressionBonus"), config.spawnRateProgressionBonus)
-				.setDefaultValue(Tuning.SPAWN_RATE_MAX_BONUS)
-				.setMin(0.0).setMax(3.0)
-				.setTooltip(Component.translatable("config.dire_difficulty.spawnRateProgressionBonus.tooltip"))
-				.setSaveConsumer(value -> config.spawnRateProgressionBonus = value)
-				.build());
-	}
-
-	private static void buildElites(final ConfigBuilder builder, final ConfigEntryBuilder eb, final DireDifficultyConfig config) {
-		ConfigCategory elites = builder.getOrCreateCategory(Component.translatable("config.dire_difficulty.category.elites"));
-
-		// First on the tab, and the only entry here that is NOT preset-governed: it is a
-		// display preference on THIS client, so no preset stamps it and nothing syncs it. The
-		// tooltip says so, because everything under it on this tab behaves the other way.
-		elites.addEntry(eb.startBooleanToggle(Component.translatable("config.dire_difficulty.elitePlate"), config.elitePlate)
-				.setDefaultValue(true)
-				.setTooltip(Component.translatable("config.dire_difficulty.elitePlate.tooltip"))
-				.setSaveConsumer(value -> config.elitePlate = value)
-				.build());
-
-		// The two gear-drop toggles, next to the plate and above the governed block for the
-		// same reason: no preset stamps any of the three. Both of THESE are server-side rules
-		// though — on a dedicated server the server's copy decides — so their tooltips say so
-		// rather than repeating the plate's "this setting is yours" line.
-		elites.addEntry(eb.startBooleanToggle(Component.translatable("config.dire_difficulty.eliteGearDrops"), config.eliteGearDrops)
-				.setDefaultValue(true)
-				.setTooltip(Component.translatable("config.dire_difficulty.eliteGearDrops.tooltip"))
-				.setSaveConsumer(value -> config.eliteGearDrops = value)
-				.build());
-		elites.addEntry(eb.startBooleanToggle(Component.translatable("config.dire_difficulty.allMobGearDrops"), config.allMobGearDrops)
-				.setDefaultValue(true)
-				.setTooltip(Component.translatable("config.dire_difficulty.allMobGearDrops.tooltip"))
-				.setSaveConsumer(value -> config.allMobGearDrops = value)
-				.build());
-
-		elites.addEntry(eb.startDoubleField(Component.translatable("config.dire_difficulty.eliteChanceMax"), config.eliteChanceMax)
-				.setDefaultValue(Tuning.PRESET_CLOUDS_ELITE_CHANCE_MAX)
-				.setMin(0.0).setMax(1.0)
-				.setTooltip(Component.translatable("config.dire_difficulty.eliteChanceMax.tooltip"))
-				.setSaveConsumer(value -> config.eliteChanceMax = value)
-				.build());
-		elites.addEntry(eb.startIntField(Component.translatable("config.dire_difficulty.maxRarityTier"), config.maxRarityTier)
-				.setDefaultValue(Tuning.PRESET_CLOUDS_MAX_RARITY_TIER)
-				.setMin(1).setMax(4)
-				.setTooltip(Component.translatable("config.dire_difficulty.maxRarityTier.tooltip"))
-				.setSaveConsumer(value -> config.maxRarityTier = value)
-				.build());
-		elites.addEntry(eb.startDoubleField(Component.translatable("config.dire_difficulty.legendaryWeightFloor"), config.legendaryWeightFloor)
-				.setDefaultValue(Tuning.PRESET_CLOUDS_LEGENDARY_WEIGHT_FLOOR)
-				.setMin(0.0).setMax(100.0)
-				.setTooltip(Component.translatable("config.dire_difficulty.legendaryWeightFloor.tooltip"))
-				.setSaveConsumer(value -> config.legendaryWeightFloor = value)
-				.build());
-
-		elites.addEntry(eb.startIntField(Component.translatable("config.dire_difficulty.bonusAffixBudget"), config.bonusAffixBudget)
-				.setDefaultValue(Tuning.PRESET_CLOUDS_BONUS_BUDGET)
-				.setMin(0).setMax(12)
-				.setTooltip(Component.translatable("config.dire_difficulty.bonusAffixBudget.tooltip"))
-				.setSaveConsumer(value -> config.bonusAffixBudget = value)
-				.build());
-		elites.addEntry(eb.startIntField(Component.translatable("config.dire_difficulty.bonusAffixSlots"), config.bonusAffixSlots)
-				.setDefaultValue(Tuning.PRESET_CLOUDS_BONUS_SLOTS)
-				.setMin(0).setMax(4)
-				.setTooltip(Component.translatable("config.dire_difficulty.bonusAffixSlots.tooltip"))
-				.setSaveConsumer(value -> config.bonusAffixSlots = value)
-				.build());
-		elites.addEntry(eb.startIntField(Component.translatable("config.dire_difficulty.bonusFromRarityTier"), config.bonusFromRarityTier)
-				.setDefaultValue(Tuning.PRESET_CLOUDS_BONUS_FROM_TIER)
-				.setMin(1).setMax(4)
-				.setTooltip(Component.translatable("config.dire_difficulty.bonusFromRarityTier.tooltip"))
-				.setSaveConsumer(value -> config.bonusFromRarityTier = value)
-				.build());
-
-		elites.addEntry(eb.startStrList(Component.translatable("config.dire_difficulty.allowedAffixClasses"), config.allowedAffixClasses)
-				.setDefaultValue(java.util.List.of())
-				.setTooltip(Component.translatable("config.dire_difficulty.allowedAffixClasses.tooltip"))
-				.setSaveConsumer(value -> config.allowedAffixClasses = value)
-				.build());
-	}
-
-	private static void buildSpawning(final ConfigBuilder builder, final ConfigEntryBuilder eb, final DireDifficultyConfig config) {
-		ConfigCategory spawning = builder.getOrCreateCategory(Component.translatable("config.dire_difficulty.category.spawning"));
-
-		spawning.addEntry(eb.startBooleanToggle(Component.translatable("config.dire_difficulty.daySpawning"), config.daySpawning)
-				.setDefaultValue(Tuning.PRESET_CLOUDS_DAY_SPAWNING)
-				.setTooltip(Component.translatable("config.dire_difficulty.daySpawning.tooltip"))
-				.setSaveConsumer(value -> config.daySpawning = value)
-				.build());
-		spawning.addEntry(eb.startBooleanToggle(Component.translatable("config.dire_difficulty.daySpawnBurnImmunity"), config.daySpawnBurnImmunity)
-				.setDefaultValue(Tuning.PRESET_CLOUDS_DAY_SPAWN_BURN_IMMUNITY)
-				.setTooltip(Component.translatable("config.dire_difficulty.daySpawnBurnImmunity.tooltip"))
-				.setSaveConsumer(value -> config.daySpawnBurnImmunity = value)
-				.build());
-
-		spawning.addEntry(eb.startDoubleField(Component.translatable("config.dire_difficulty.spawnFrequencyMultiplier"), config.spawnFrequencyMultiplier)
-				.setDefaultValue(Tuning.PRESET_CLOUDS_SPAWN_FREQUENCY)
-				.setMin(0.0).setMax(Tuning.SPAWN_FREQUENCY_MAX)
-				.setTooltip(Component.translatable("config.dire_difficulty.spawnFrequencyMultiplier.tooltip"))
-				.setSaveConsumer(value -> config.spawnFrequencyMultiplier = value)
-				.build());
-		spawning.addEntry(eb.startDoubleField(Component.translatable("config.dire_difficulty.mobCapMultiplier"), config.mobCapMultiplier)
-				.setDefaultValue(Tuning.PRESET_CLOUDS_MOB_CAP)
-				.setMin(Tuning.MOB_CAP_MULTIPLIER_MIN).setMax(Tuning.MOB_CAP_MULTIPLIER_MAX)
-				.setTooltip(Component.translatable("config.dire_difficulty.mobCapMultiplier.tooltip"))
-				.setSaveConsumer(value -> config.mobCapMultiplier = value)
-				.build());
-		spawning.addEntry(eb.startDoubleField(Component.translatable("config.dire_difficulty.despawnDistanceMultiplier"), config.despawnDistanceMultiplier)
-				.setDefaultValue(Tuning.PRESET_CLOUDS_DESPAWN_DISTANCE)
-				.setMin(Tuning.DESPAWN_MULTIPLIER_MIN).setMax(Tuning.DESPAWN_MULTIPLIER_MAX)
-				.setTooltip(Component.translatable("config.dire_difficulty.despawnDistanceMultiplier.tooltip"))
-				.setSaveConsumer(value -> config.despawnDistanceMultiplier = value)
-				.build());
-
-		spawning.addEntry(eb.startBooleanToggle(Component.translatable("config.dire_difficulty.theHunt"), config.theHunt)
-				.setDefaultValue(Tuning.PRESET_CLOUDS_THE_HUNT)
-				.setTooltip(Component.translatable("config.dire_difficulty.theHunt.tooltip"))
-				.setSaveConsumer(value -> config.theHunt = value)
-				.build());
+	private static me.shedaniel.clothconfig2.api.AbstractConfigListEntry<?> toggle(final ConfigEntryBuilder eb,
+			final String id, final boolean value, final boolean defaultValue,
+			final java.util.function.Consumer<Boolean> save) {
+		return eb.startBooleanToggle(Component.translatable(KEY + id), value)
+				.setDefaultValue(defaultValue)
+				.setTooltip(Component.translatable(KEY + id + ".tooltip"))
+				.setSaveConsumer(save)
+				.build();
 	}
 }

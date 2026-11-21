@@ -70,7 +70,6 @@ public class DireDifficulty implements ModInitializer {
 		// already be up. The callback itself fires per server, long after this returns.
 		DireDifficultyCommands.register();
 
-		LOGGER.info("{} loaded (preset {}; config dir {})",
-				MOD_ID, ConfigManager.get().preset, Platform.INSTANCE.configDir());
+		LOGGER.info("{} loaded (config dir {})", MOD_ID, Platform.INSTANCE.configDir());
 	}
 }

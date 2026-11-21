@@ -299,7 +299,7 @@ public final class EliteGear {
 	public static void beforeEquipmentDrops(final Mob mob) {
 		DireDifficultyConfig config = ConfigManager.get();
 		boolean elite = EliteMob.isElite(mob);
-		boolean suppress = !config.allMobGearDrops || (elite && !config.eliteGearDrops);
+		boolean suppress = elite && !config.eliteGearDrops;
 		DropChances chances = mob.getDropChances();
 
 		for (final EquipmentSlot slot : EquipmentSlot.VALUES) {

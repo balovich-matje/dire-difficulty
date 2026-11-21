@@ -1,106 +1,75 @@
 package com.diredifficulty.progression;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.OptionalDouble;
 import java.util.Set;
 import java.util.UUID;
 
 import com.diredifficulty.Tuning;
-import com.diredifficulty.config.ConfigManager;
-import com.diredifficulty.config.DireDifficultyConfig;
 
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
-
+import net.minecraft.advancements.AdvancementHolder;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.PlayerAdvancements;
+import net.minecraft.server.ServerAdvancementManager;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.stats.ServerStatsCounter;
+import net.minecraft.stats.Stats;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.MobCategory;
 
 /**
- * The wide half of {@code docs/DESIGN.md} §5.1: several {@link ScoreProvider}s, a combine mode,
- * a per-player cache, and the rule that turns per-player scores into the score at a POSITION.
- * Installs itself as the {@link ScoreSource} the elite roller consumes.
+ * The progression stage, 0..1 (rewritten 2026-11-21).
  *
- * <p><b>Everything here is server-side and server-authoritative.</b> Scores are computed from
- * server state, cached on the server, and never sent anywhere. The client has no opinion about
- * how progressed anyone is.
+ * <p>Four vanilla statistics, nothing from any other mod, so the stage means the same thing in
+ * every modpack: completed advancements, hostile kills, distance travelled and time since the
+ * last death. Each is eased out to its target (fast early, diminishing near the target) and
+ * weighted, and the weights sum to 1 — so no single statistic can carry the stage beyond its
+ * own weight. The world difficulty then caps the result: Easy 0.25, Normal 0.5, Hard 1.
  *
- * <h2>Why the cache exists</h2>
- *
- * <p>Counting advancements walks the whole datapack advancement set and summing skills walks
- * fifteen map entries. Elite rolls happen inside the spawn path — once per eligible mob, on
- * every spawn attempt in every loaded chunk — so neither may run there. Per-player scores are
- * recomputed every {@link Tuning#SCORE_REFRESH_TICKS} on the server tick and every read is
- * served from the map.
- *
- * <h2>From per-player score to a per-spawn score</h2>
- *
- * <p>A spawn happens at a position, not for a player. The score at a position is the
- * <b>maximum</b> among players within {@link Tuning#SCORE_RADIUS} — 128 blocks, matching
- * vanilla's own {@code NaturalSpawner.SPAWN_DISTANCE_BLOCK}, so a spawn vanilla considered
- * "near a player" is scored by that same player — falling back to the nearest player when none
- * is in range. Maximum rather than average: a group's difficulty should track the player the
- * elites will actually have to fight.
+ * <p>Per player, cached and refreshed every {@code SCORE_REFRESH_TICKS}. A position reads the
+ * best stage among players within {@code SCORE_RADIUS}, else the nearest player's.
  */
 public final class ProgressionScore implements ScoreSource {
 	public static final ProgressionScore INSTANCE = new ProgressionScore();
 
-	/**
-	 * The shipped providers, in a fixed order. Order is irrelevant to every combine mode —
-	 * MAX, AVERAGE and SUM_CLAMPED are all commutative — and it is fixed anyway so that log
-	 * output and any future debug command read the same way twice.
-	 */
-	private static final ScoreProvider[] PROVIDERS = {
-		AdvancementScore.INSTANCE,
-		ArchetypesScore.INSTANCE,
-		SkillProficienciesScore.INSTANCE,
+	/** One player's factors, each already eased to 0..1, plus the weighted, capped total. */
+	public record Breakdown(double advancements, double kills, double distance, double survival,
+			double uncapped, double cap, double stage) {
+	}
+
+	private static final Identifier[] DISTANCE_STATS = {
+		Stats.WALK_ONE_CM, Stats.CROUCH_ONE_CM, Stats.SPRINT_ONE_CM, Stats.WALK_ON_WATER_ONE_CM,
+		Stats.WALK_UNDER_WATER_ONE_CM, Stats.SWIM_ONE_CM, Stats.CLIMB_ONE_CM, Stats.AVIATE_ONE_CM,
+		Stats.MINECART_ONE_CM, Stats.BOAT_ONE_CM, Stats.PIG_ONE_CM, Stats.HORSE_ONE_CM,
+		Stats.STRIDER_ONE_CM, Stats.HAPPY_GHAST_ONE_CM, Stats.NAUTILUS_ONE_CM,
 	};
 
-	/** Player UUID to last computed score. Server thread only; no synchronisation by design. */
 	private final Map<UUID, Double> cache = new HashMap<>();
-
-	/** Absolute server tick at which the next full refresh is due. */
 	private int nextRefreshTick;
+	private double highestOnline;
+
+	private ServerAdvancementManager cachedFor;
+	private List<AdvancementHolder> cachedEligible = List.of();
+	private List<EntityType<?>> hostileTypes;
 
 	private ProgressionScore() {
 	}
 
-	/**
-	 * Wire the refresh tick and install this as the active {@link ScoreSource}. Called once
-	 * from common init, before any world can load — until it runs, the elite roller sees
-	 * {@link ScoreSource#ZERO} and plays at the score-0 end of every curve, which is a coherent
-	 * game rather than a crash.
-	 */
 	public static void register() {
 		ServerTickEvents.END_SERVER_TICK.register(INSTANCE::onEndTick);
-
-		// A single-player client can start a second, unrelated world in the same JVM. Dropping
-		// the cache on stop means the next world never reads a score computed for a player in
-		// the previous one.
 		ServerLifecycleEvents.SERVER_STOPPED.register(server -> INSTANCE.clear());
-
 		ScoreSource.install(INSTANCE);
-	}
-
-	/** The live config. One accessor so the providers do not each reach for the manager. */
-	static DireDifficultyConfig config() {
-		return ConfigManager.get();
-	}
-
-	/**
-	 * The shipped providers, for {@code /dire score}'s per-source breakdown.
-	 *
-	 * <p>Exposed rather than mirrored, so the command can only ever report the providers that
-	 * actually feed {@link #compute}. Mirroring the list is the exact shape of Archetypes'
-	 * {@code SPECIALITIES_SHIFT} bug — a second copy that compiles, reads plausibly, and is
-	 * wrong the day the first one changes. Defensive copy: the array is the fold's own input.
-	 */
-	public static ScoreProvider[] providers() {
-		return PROVIDERS.clone();
 	}
 
 	@Override
@@ -110,28 +79,21 @@ public final class ProgressionScore implements ScoreSource {
 
 	@Override
 	public double scoreFor(final ServerPlayer player) {
-		if (config().ignoreProgression) {
-			return 1.0;
-		}
-
 		Double cached = this.cache.get(player.getUUID());
+
 		if (cached != null) {
 			return cached;
 		}
 
-		// A player who joined between refreshes still gets a real number rather than 0.
-		double fresh = compute(player);
+		double fresh = breakdown(player).stage();
 		this.cache.put(player.getUUID(), fresh);
 		return fresh;
 	}
 
 	@Override
 	public double scoreAt(final ServerLevel level, final BlockPos pos) {
-		if (config().ignoreProgression) {
-			return 1.0;
-		}
-
 		List<ServerPlayer> players = level.players();
+
 		if (players.isEmpty()) {
 			return 0.0;
 		}
@@ -163,73 +125,143 @@ public final class ProgressionScore implements ScoreSource {
 			return inRangeBest;
 		}
 
-		// Nobody within the radius: fall back to the nearest player rather than to 0. A spawn
-		// far from everyone is still happening in a world someone has progressed through.
 		return nearestDistSqr == Double.MAX_VALUE ? 0.0 : nearestScore;
 	}
 
 	/**
-	 * Recompute every online player's score, then drop cache entries for anyone who has left.
-	 * Runs on the server thread at {@link Tuning#SCORE_REFRESH_TICKS}.
+	 * The highest stage among online players, refreshed with the cache. For the settings that
+	 * vanilla applies world-wide rather than at a position (mob cap, despawn distance).
 	 */
+	public double highestOnline() {
+		return this.highestOnline;
+	}
+
+	/** Computes one player's stage from scratch. Also what {@code /dire score} prints. */
+	public Breakdown breakdown(final ServerPlayer player) {
+		ServerStatsCounter stats = player.getStats();
+
+		double advancements = Tuning.easeOut(completedAdvancements(player), Tuning.STAGE_TARGET_ADVANCEMENTS);
+		double kills = Tuning.easeOut(hostileKills(stats), Tuning.STAGE_TARGET_KILLS);
+
+		long centimetres = 0L;
+
+		for (Identifier stat : DISTANCE_STATS) {
+			centimetres += stats.getValue(Stats.CUSTOM, stat);
+		}
+
+		double distance = Tuning.easeOut(centimetres / 100.0, Tuning.STAGE_TARGET_DISTANCE);
+		double survival = Tuning.easeOut(stats.getValue(Stats.CUSTOM, Stats.TIME_SINCE_DEATH),
+				Tuning.STAGE_TARGET_SURVIVAL_TICKS);
+
+		double uncapped = Tuning.clamp01(advancements * Tuning.STAGE_WEIGHT_ADVANCEMENTS
+				+ kills * Tuning.STAGE_WEIGHT_KILLS
+				+ distance * Tuning.STAGE_WEIGHT_DISTANCE
+				+ survival * Tuning.STAGE_WEIGHT_SURVIVAL);
+		double cap = cap(player.level().getDifficulty());
+		return new Breakdown(advancements, kills, distance, survival, uncapped, cap, Math.min(uncapped, cap));
+	}
+
+	public static double cap(final Difficulty difficulty) {
+		return switch (difficulty) {
+			case PEACEFUL -> Tuning.STAGE_CAP_PEACEFUL;
+			case EASY -> Tuning.STAGE_CAP_EASY;
+			case NORMAL -> Tuning.STAGE_CAP_NORMAL;
+			case HARD -> Tuning.STAGE_CAP_HARD;
+		};
+	}
+
+	private int completedAdvancements(final ServerPlayer player) {
+		MinecraftServer server = player.level().getServer();
+
+		if (server == null) {
+			return 0;
+		}
+
+		PlayerAdvancements progress = player.getAdvancements();
+		int done = 0;
+
+		for (AdvancementHolder holder : eligible(server.getAdvancements())) {
+			if (progress.getOrStartProgress(holder).isDone()) {
+				done++;
+			}
+		}
+
+		return done;
+	}
+
+	/** Advancements with a display (no hidden plumbing) and not a recipe unlock. */
+	private List<AdvancementHolder> eligible(final ServerAdvancementManager manager) {
+		if (manager == this.cachedFor) {
+			return this.cachedEligible;
+		}
+
+		Collection<AdvancementHolder> all = manager.getAllAdvancements();
+		List<AdvancementHolder> out = new ArrayList<>(all.size());
+
+		for (AdvancementHolder holder : all) {
+			if (holder.value().display().isPresent() && !holder.id().getPath().startsWith("recipes/")) {
+				out.add(holder);
+			}
+		}
+
+		this.cachedFor = manager;
+		this.cachedEligible = List.copyOf(out);
+		return this.cachedEligible;
+	}
+
+	/** Sum of the "killed" statistic over every MONSTER-category entity type. */
+	private int hostileKills(final ServerStatsCounter stats) {
+		if (this.hostileTypes == null) {
+			List<EntityType<?>> types = new ArrayList<>();
+
+			for (EntityType<?> type : BuiltInRegistries.ENTITY_TYPE) {
+				if (type.getCategory() == MobCategory.MONSTER) {
+					types.add(type);
+				}
+			}
+
+			this.hostileTypes = List.copyOf(types);
+		}
+
+		long total = 0L;
+
+		for (EntityType<?> type : this.hostileTypes) {
+			total += stats.getValue(Stats.ENTITY_KILLED, type);
+		}
+
+		return (int) Math.min(total, Integer.MAX_VALUE);
+	}
+
 	private void onEndTick(final MinecraftServer server) {
 		if (server.getTickCount() < this.nextRefreshTick) {
 			return;
 		}
 
 		this.nextRefreshTick = server.getTickCount() + Math.max(1, Tuning.SCORE_REFRESH_TICKS);
-
 		List<ServerPlayer> online = server.getPlayerList().getPlayers();
 		Set<UUID> present = new HashSet<>(online.size());
+		double highest = 0.0;
 
 		for (ServerPlayer player : online) {
 			UUID uuid = player.getUUID();
 			present.add(uuid);
-			this.cache.put(uuid, compute(player));
+			double stage = breakdown(player).stage();
+			this.cache.put(uuid, stage);
+
+			if (!player.isSpectator()) {
+				highest = Math.max(highest, stage);
+			}
 		}
 
 		this.cache.keySet().retainAll(present);
+		this.highestOnline = highest;
 	}
 
-	/**
-	 * Fold this player's enabled, ANSWERING providers into one 0..1 score.
-	 *
-	 * <p>The absent-is-not-zero rule is enforced right here and nowhere else: a provider that
-	 * returns empty never enters the array, so no combine mode can ever see a placeholder zero
-	 * standing in for a mod that is not installed.
-	 *
-	 * <p>When nothing answered at all — every source disabled, or none of their mods present
-	 * and advancements switched off — the result is 0.0. That is the bottom of the curve (1%
-	 * elite chance, ~81% uncommon, no legendaries), i.e. very nearly vanilla, which is the
-	 * right thing for a config that has opted out of measuring progress.
-	 */
-	private static double compute(final ServerPlayer player) {
-		DireDifficultyConfig config = config();
-		if (config.ignoreProgression) {
-			return 1.0;
-		}
-
-		double[] answered = new double[PROVIDERS.length];
-		int count = 0;
-
-		for (ScoreProvider provider : PROVIDERS) {
-			if (!provider.enabled(config)) {
-				continue;
-			}
-
-			OptionalDouble score = provider.score(player);
-			if (score.isPresent()) {
-				answered[count] = Tuning.clamp01(score.getAsDouble());
-				count++;
-			}
-		}
-
-		return config.combineMode.combine(answered, count).orElse(0.0);
-	}
-
-	/** Forget every cached score. */
 	public void clear() {
 		this.cache.clear();
 		this.nextRefreshTick = 0;
+		this.highestOnline = 0.0;
+		this.cachedFor = null;
+		this.cachedEligible = List.of();
 	}
 }

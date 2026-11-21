@@ -6,7 +6,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.OptionalDouble;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Predicate;
@@ -17,7 +16,6 @@ import com.diredifficulty.affix.AffixClass;
 import com.diredifficulty.affix.Affixes;
 import com.diredifficulty.config.ConfigManager;
 import com.diredifficulty.config.DireDifficultyConfig;
-import com.diredifficulty.config.Preset;
 import com.diredifficulty.elite.EliteData;
 import com.diredifficulty.elite.EliteGear;
 import com.diredifficulty.elite.EliteLoot;
@@ -27,7 +25,6 @@ import com.diredifficulty.elite.EliteRoller;
 import com.diredifficulty.elite.EliteRules;
 import com.diredifficulty.elite.Rarity;
 import com.diredifficulty.progression.ProgressionScore;
-import com.diredifficulty.progression.ScoreProvider;
 import com.diredifficulty.progression.ScoreSource;
 
 import com.mojang.brigadier.arguments.IntegerArgumentType;
@@ -145,7 +142,6 @@ public final class DireDifficultyCommands {
 							.then(scoreCommand())
 							.then(infoCommand())
 							.then(spawnCommand(registries))
-							.then(presetCommand())
 							.then(auditCommand())
 							.then(namesCommand(registries))
 							.then(lootCommand()));
@@ -179,28 +175,25 @@ public final class DireDifficultyCommands {
 	}
 
 	private static int reportScore(final CommandSourceStack source, final ServerPlayer player) {
-		DireDifficultyConfig config = ConfigManager.get();
-		double combined = ScoreSource.active().scoreFor(player);
+		ProgressionScore.Breakdown b = ProgressionScore.INSTANCE.breakdown(player);
 
 		source.sendSuccess(() -> Component.translatable(KEY + "score.header",
-				player.getName(), String.format(Locale.ROOT, "%.3f", combined),
-				config.combineMode.name()), false);
-
-		for (final ScoreProvider provider : ProgressionScore.providers()) {
-			boolean enabled = provider.enabled(config);
-			OptionalDouble value = enabled ? provider.score(player) : OptionalDouble.empty();
-			String rendered = !enabled ? "off"
-					: value.isPresent() ? String.format(Locale.ROOT, "%.3f", value.getAsDouble())
-					: "absent";
-
-			source.sendSuccess(() -> Component.translatable(KEY + "score.source",
-					provider.id(), rendered), false);
-		}
-
+				player.getName(), String.format(Locale.ROOT, "%.3f", b.stage()),
+				String.format(Locale.ROOT, "%.2f", b.cap())), false);
+		reportFactor(source, "advancements", b.advancements(), Tuning.STAGE_WEIGHT_ADVANCEMENTS);
+		reportFactor(source, "kills", b.kills(), Tuning.STAGE_WEIGHT_KILLS);
+		reportFactor(source, "distance", b.distance(), Tuning.STAGE_WEIGHT_DISTANCE);
+		reportFactor(source, "survival", b.survival(), Tuning.STAGE_WEIGHT_SURVIVAL);
 		source.sendSuccess(() -> Component.translatable(KEY + "score.chance",
 				String.format(Locale.ROOT, "%.4f",
-						Tuning.eliteChance(combined, EliteRules.active().eliteChanceMax()))), false);
+						Tuning.eliteChance(b.stage(), EliteRules.active().eliteChanceMax()))), false);
 		return 1;
+	}
+
+	private static void reportFactor(final CommandSourceStack source, final String id, final double value,
+			final double weight) {
+		source.sendSuccess(() -> Component.translatable(KEY + "score.source", id,
+				String.format(Locale.ROOT, "%.3f (adds %.3f of %.2f)", value, value * weight, weight)), false);
 	}
 
 	// --- /dire info ---
@@ -377,9 +370,7 @@ public final class DireDifficultyCommands {
 
 	private static Rarity drawRarityFromCurve(final ServerLevel level, final CommandSourceStack source) {
 		EliteRules rules = EliteRules.active();
-		double score = rules.ignoreProgression()
-				? 1.0
-				: ScoreSource.active().scoreAt(level, BlockPos.containing(source.getPosition()));
+		double score = ScoreSource.active().scoreAt(level, BlockPos.containing(source.getPosition()));
 		RandomSource random = level.getRandom();
 		double[] weights = {
 			Tuning.rarityWeightUncommon(score),
@@ -412,42 +403,6 @@ public final class DireDifficultyCommands {
 		}
 
 		return Rarity.UNCOMMON;
-	}
-
-	// --- /dire preset <preset> ---
-
-	private static LiteralArgumentBuilder<CommandSourceStack> presetCommand() {
-		return Commands.literal("preset")
-				.executes(context -> {
-					DireDifficultyConfig config = ConfigManager.get();
-					context.getSource().sendSuccess(() -> Component.translatable(KEY + "preset.current",
-							config.preset.name()), false);
-					return 1;
-				})
-				.then(Commands.argument("preset", StringArgumentType.word())
-						.suggests((context, builder) -> SharedSuggestionProvider.suggest(
-								presetNames(), builder))
-						.executes(context -> {
-							CommandSourceStack source = context.getSource();
-							String name = StringArgumentType.getString(context, "preset");
-							Preset preset = presetByName(name);
-
-							if (preset == null) {
-								source.sendFailure(Component.translatable(KEY + "preset.unknown", name,
-										String.join(", ", presetNames())));
-								return 0;
-							}
-
-							ConfigManager.applyPreset(preset);
-							DireDifficultyConfig config = ConfigManager.get();
-							source.sendSuccess(() -> Component.translatable(KEY + "preset.done",
-									preset.name(),
-									String.format(Locale.ROOT, "%.2f", config.eliteChanceMax),
-									config.maxRarityTier,
-									String.valueOf(config.daySpawning),
-									String.valueOf(config.theHunt)), true);
-							return 1;
-						}));
 	}
 
 	// --- /dire audit <rarity> <count> ---
@@ -771,28 +726,6 @@ public final class DireDifficultyCommands {
 		for (final Rarity rarity : Rarity.all()) {
 			if (rarity.name().equalsIgnoreCase(name)) {
 				return rarity;
-			}
-		}
-
-		return null;
-	}
-
-	private static List<String> presetNames() {
-		List<String> names = new ArrayList<>();
-
-		for (final Preset preset : Preset.values()) {
-			if (preset != Preset.CUSTOM) {
-				names.add(preset.name().toLowerCase(Locale.ROOT));
-			}
-		}
-
-		return names;
-	}
-
-	private static Preset presetByName(final String name) {
-		for (final Preset preset : Preset.values()) {
-			if (preset != Preset.CUSTOM && preset.name().equalsIgnoreCase(name)) {
-				return preset;
 			}
 		}
 

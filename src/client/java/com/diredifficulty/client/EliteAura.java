@@ -219,7 +219,7 @@ public final class EliteAura {
 	/** Called with the pose stack at the entity's origin, before the model is posed. */
 	public static void submit(final LivingEntityRenderState state, final PoseStack poseStack,
 			final SubmitNodeCollector collector, final CameraRenderState camera) {
-		if (state.isInvisible) {
+		if (state.isInvisible || !com.diredifficulty.config.ConfigManager.get().eliteGlow) {
 			return;
 		}
 

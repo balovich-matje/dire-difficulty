@@ -1581,3 +1581,12 @@ Changes from it:
 ### 13.x Loot nerf (2026-11-21, user decision)
 
 Elites must never make mining pointless. One material per kill, by weight from the tier's column, 1-2 of it: uncommon none, rare iron, epic iron/gold, legendary iron/gold/emerald/diamond. Enchanted books legendary only, one. Coal, ender pearls and netherite scrap dropped from the whitelist. Numbers in `Tuning` LOOT_WEIGHT_* / LOOT_MATERIAL_* / LOOT_BOOK_*.
+
+### 13.y Presets retired, stage-based progression (2026-11-21, user decision)
+
+- No presets. World difficulty caps the progression stage: Peaceful 0, Easy 0.25, Normal 0.5, Hard 1 (hardcore = Hard).
+- Stage = weighted sum of four vanilla stats, each eased out (`1-(1-x/T)^2`, exactly 1 at target): advancements 0.35 (T 60, recipes excluded), hostile kills 0.25 (T 1000, MONSTER-category `killed` stats), distance 0.20 (T 100k blocks, all movement stats except creative flight), time since death 0.20 (T 3 h). Weights sum to 1 → no single factor exceeds its weight; diminishing returns within each. Chosen over "one stat can max out" and over pure asymptotes (which never reach 1).
+- SP/Archetypes score providers + compat bridges deleted: mod must mean the same in any pack.
+- Stage drives: elite chance (0.01 → 0.35, exp 1.6), rarity weights, spawn frequency (per chunk, 1 → `spawnFrequencyAtMax`), mob cap + despawn distance (highest online stage, 1 → `…AtMax`). Bonus affixes / legendary floor / affix-class whitelist gone (fixed 0 / all).
+- Config: General (spawnElites, modifySpawns, theHunt), Elites (elitePlate, eliteGearDrops default OFF, eliteGlow), Spawning (daySpawning, daySpawnBurnImmunity, three `…AtMax` multipliers). `allMobGearDrops` removed → vanilla handles non-elite gear. Multipliers renamed so old files' values are ignored.
+- `/dire preset` removed; `/dire score` prints the four factors, cap and stage.

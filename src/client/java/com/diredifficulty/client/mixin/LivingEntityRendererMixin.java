@@ -83,7 +83,7 @@ public abstract class LivingEntityRendererMixin {
 			((FabricRenderState) state).setData(EliteClientState.RENDER_KEY, elite);
 			Rarity rarity = elite.rarity();
 
-			if (rarity != null && !state.isInvisible) {
+			if (rarity != null && !state.isInvisible && com.diredifficulty.config.ConfigManager.get().eliteGlow) {
 				// The elite is lit as if it carried its own light; never darker than real light.
 				state.lightCoords = LightCoordsUtil.lightCoordsWithEmission(state.lightCoords,
 						rarity.auraMobLight());

@@ -73,7 +73,6 @@ public final class ConfigManager {
 					JsonObject json = root.getAsJsonObject();
 					DireDifficultyConfig loaded = GSON.fromJson(json, DireDifficultyConfig.class);
 					if (loaded != null) {
-						applyPresetIfOnlyNamed(json, loaded);
 						instance = loaded;
 					}
 				}
@@ -82,47 +81,6 @@ public final class ConfigManager {
 			}
 		}
 
-		save();
-	}
-
-	/**
-	 * Stamp the named preset when — and only when — the file names a preset and spells out
-	 * <b>none</b> of the fields that preset governs.
-	 *
-	 * <p>This is the one piece of nuance the preset semantics need on disk, and skipping it
-	 * breaks the obvious case. A server admin who writes {@code {"preset": "HELL_ON_EARTH"}}
-	 * by hand and nothing else means "run Hell on Earth"; without this, every governed field
-	 * would come up at its Gathering Clouds field-initialiser default, diverge from the named
-	 * preset, and {@link DireDifficultyConfig#sanitize()} would relabel the whole thing Custom.
-	 *
-	 * <p>The moment the file spells out even one governed value, this does nothing and the
-	 * file runs verbatim — which is §8's rule: what the file says is what runs. The values
-	 * then either match the label or {@code sanitize()} moves the label to Custom. Presence is
-	 * tested on the raw {@link JsonObject}, because a field ABSENT from the JSON and a field
-	 * present with the default value are indistinguishable after binding.
-	 */
-	private static void applyPresetIfOnlyNamed(final JsonObject json, final DireDifficultyConfig loaded) {
-		if (loaded.preset == null || loaded.preset == Preset.CUSTOM) {
-			return;
-		}
-
-		for (String governed : Preset.GOVERNED_FIELDS) {
-			if (json.has(governed)) {
-				return;
-			}
-		}
-
-		loaded.preset.stamp(loaded);
-	}
-
-	/**
-	 * Select a preset and stamp its values. The only entry point that lets a preset write over
-	 * existing values, which is what makes "selecting a preset" a deliberate act rather than
-	 * something that can happen to a config behind the player's back.
-	 */
-	public static void applyPreset(final Preset preset) {
-		instance.preset = preset;
-		preset.stamp(instance);
 		save();
 	}
 

@@ -30,37 +30,37 @@ public interface EliteRules {
 	EliteRules GATHERING_CLOUDS = new EliteRules() {
 		@Override
 		public double eliteChanceMax() {
-			return Tuning.PRESET_CLOUDS_ELITE_CHANCE_MAX;
+			return Tuning.ELITE_CHANCE_MAX;
 		}
 
 		@Override
 		public int maxRarityTier() {
-			return Tuning.PRESET_CLOUDS_MAX_RARITY_TIER;
+			return Tuning.MAX_RARITY_TIER;
 		}
 
 		@Override
 		public double legendaryWeightFloor() {
-			return Tuning.PRESET_CLOUDS_LEGENDARY_WEIGHT_FLOOR;
+			return 0.0;
 		}
 
 		@Override
 		public int bonusBudget() {
-			return Tuning.PRESET_CLOUDS_BONUS_BUDGET;
+			return 0;
 		}
 
 		@Override
 		public int bonusSlots() {
-			return Tuning.PRESET_CLOUDS_BONUS_SLOTS;
+			return 0;
 		}
 
 		@Override
 		public int bonusFromTier() {
-			return Tuning.PRESET_CLOUDS_BONUS_FROM_TIER;
+			return 1;
 		}
 
 		@Override
 		public boolean ignoreProgression() {
-			return Tuning.PRESET_CLOUDS_IGNORE_PROGRESSION;
+			return false;
 		}
 
 		@Override

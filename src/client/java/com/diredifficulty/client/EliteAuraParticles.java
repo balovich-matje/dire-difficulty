@@ -64,7 +64,8 @@ public final class EliteAuraParticles {
 		ClientLevel level = client.level;
 		Entity camera = client.getCameraEntity();
 
-		if (level == null || camera == null || client.isPaused()) {
+		if (level == null || camera == null || client.isPaused()
+				|| !com.diredifficulty.config.ConfigManager.get().eliteGlow) {
 			return;
 		}
 
