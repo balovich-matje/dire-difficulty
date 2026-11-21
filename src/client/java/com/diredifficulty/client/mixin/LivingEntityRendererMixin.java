@@ -1,7 +1,10 @@
 package com.diredifficulty.client.mixin;
 
+import com.diredifficulty.client.EliteAura;
 import com.diredifficulty.client.EliteClientState;
 import com.diredifficulty.elite.EliteData;
+import com.diredifficulty.elite.Rarity;
+import com.mojang.blaze3d.vertex.PoseStack;
 
 import net.fabricmc.fabric.api.client.rendering.v1.FabricRenderState;
 
@@ -10,8 +13,11 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.entity.LivingEntityRenderer;
 import net.minecraft.client.renderer.entity.state.LivingEntityRenderState;
+import net.minecraft.client.renderer.state.level.CameraRenderState;
+import net.minecraft.util.LightCoordsUtil;
 import net.minecraft.world.entity.LivingEntity;
 
 /**
@@ -75,6 +81,27 @@ public abstract class LivingEntityRendererMixin {
 
 		if (elite != null) {
 			((FabricRenderState) state).setData(EliteClientState.RENDER_KEY, elite);
+			Rarity rarity = elite.rarity();
+
+			if (rarity != null && !state.isInvisible) {
+				// The elite is lit as if it carried its own light; never darker than real light.
+				state.lightCoords = LightCoordsUtil.lightCoordsWithEmission(state.lightCoords,
+						rarity.auraMobLight());
+				EliteAura.extractPool(entity.level(), state, rarity);
+			}
 		}
+	}
+
+	/** The aura disc and ground pool, drawn with the pose stack still at the entity origin. */
+	@Inject(
+			method = "submit(Lnet/minecraft/client/renderer/entity/state/LivingEntityRenderState;"
+					+ "Lcom/mojang/blaze3d/vertex/PoseStack;"
+					+ "Lnet/minecraft/client/renderer/SubmitNodeCollector;"
+					+ "Lnet/minecraft/client/renderer/state/level/CameraRenderState;)V",
+			at = @At("HEAD"))
+	private void direDifficulty$submitAura(final LivingEntityRenderState state,
+			final PoseStack poseStack, final SubmitNodeCollector collector,
+			final CameraRenderState camera, final CallbackInfo ci) {
+		EliteAura.submit(state, poseStack, collector, camera);
 	}
 }

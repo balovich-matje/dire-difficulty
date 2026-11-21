@@ -28,17 +28,14 @@ import net.minecraft.world.entity.player.Player;
  *     right.</li>
  * </ul>
  *
- * <p><b>Guarantee A, stated as arithmetic.</b> On player victims, outgoing elite damage is
- * clamped to {@code maxHealth x ELITE_HIT_CEILING}, applied after every affix contribution and
- * after the rarity multiplier. A player at full health with no armour survives any single
- * elite hit, always. <b>No affix participates in the clamp</b> — that is the point of it. No
- * review of the affix table can break a guarantee the affix table cannot reach.
+ * <p><b>No one-shot ceiling.</b> Guarantee A (clamp to a fraction of max health) was retired
+ * 2026-11-21 by user decision — elites are meant to be truly dangerous.
  *
  * <p><b>The rarity damage multiplier lives here rather than on {@code ATTACK_DAMAGE}.</b> That
  * attribute governs a melee swing and nothing else, so an attribute-based multiplier would
  * silently exempt every skeleton's arrow, every witch's potion and every blaze's fireball from
  * §2.1's own Damage column. Applying it in the funnel covers all of them uniformly, and it is
- * also the order §4.4 specifies: affixes, then the multiplier, then the ceiling.
+ * the order: affixes, then the multiplier.
  *
  * <p><b>Ordering against the sibling mods is a MEASUREMENT, not a priority-doc reading.</b>
  * The ceiling has to sit after Skill Proficiencies' damage multipliers and after Archetypes'
@@ -73,7 +70,7 @@ public final class EliteCombat {
 		return amount;
 	}
 
-	/** The elite is dealing this hit. Affixes, then the rarity multiplier, then the ceiling. */
+	/** The elite is dealing this hit. Affixes, then the rarity multiplier. */
 	private static float outgoing(final ServerLevel level, final Mob mob, final LivingEntity victim,
 			final DamageSource source, final float damage) {
 		EliteData data = EliteMob.data(mob);
@@ -94,12 +91,8 @@ public final class EliteCombat {
 
 		amount *= (float) data.rarity().damageMultiplier();
 
-		// GUARANTEE A. Players only: an elite may still delete another mob in one hit, and
-		// nothing in the design says otherwise.
-		if (victim instanceof Player) {
-			amount = Math.min(amount, victim.getMaxHealth() * Tuning.ELITE_HIT_CEILING);
-		}
-
+		// Guarantee A (the one-shot ceiling) was RETIRED 2026-11-21 by user decision:
+		// elites are meant to be truly dangerous, a full-health player CAN die to one hit.
 		return amount;
 	}
 

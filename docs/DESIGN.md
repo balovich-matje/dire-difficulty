@@ -1554,3 +1554,26 @@ two-boot name-persistence test). Both refuse to run without a pre-existing `eula
 4. The gear feature adds one more thing for §10.8's item 6 (`MobMixin` TAIL vs a subclass's own
    finalisation) to confirm in-game — a **baby zombie in a full set** is now the case to look
    at.
+
+---
+
+## 13. Second in-game look, 26.3 (2026-11-21) — **outranks everything above**
+
+Port: the single node moved 26.2 → 26.3 (commit 1c7c9a8).
+
+User pass results: wall hides the glow ✔, elite plate (name/HP/affixes) ✔, upscale visible ✔,
+**natural spawn path fired** (Legendary creeper, unprompted) ✔, **loot dropped** on a player kill ✔.
+
+Changes from it:
+
+1. **Glow → aura.** The skin sheen + inflated shell read as "a tinted copy of the texture, not
+   bright". Replaced (`EliteGlowLayer`/`EliteGlowRenderType` deleted) by `client/EliteAura`:
+   the mob is drawn with raised block light (`AURA_MOB_LIGHT`), a soft additive camera-facing
+   disc sits behind the body so light shows around the silhouette, and a soft additive pool is
+   projected onto block tops around the feet (vanilla-shadow-style block search). Own pipeline:
+   lightning shader + lightning blend, depth tested, NO depth write; OIT set mirrors vanilla's
+   lightning. Drawn from a `LivingEntityRenderer.submit` HEAD inject (pose at entity origin).
+   Walls still hide all of it. Real block lighting of the area is NOT done (no dynamic light in
+   vanilla; would need light blocks or LambDynamicLights interop) — option for later.
+2. **Guarantee A retired** (user decision): no one-shot ceiling; elites can kill a full-health
+   player in one hit. `ELITE_HIT_CEILING` removed. Guarantee B (never unkillable) stays.

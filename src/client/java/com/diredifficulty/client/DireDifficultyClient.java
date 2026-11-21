@@ -4,7 +4,6 @@ import com.diredifficulty.DireDifficulty;
 
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.fabricmc.fabric.api.client.rendering.v1.LivingEntityRenderLayerRegistrationCallback;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements;
 
@@ -66,9 +65,9 @@ import net.minecraft.resources.Identifier;
  * tracker, so each client already holds it and {@code EliteStore.INSTANCE.get(entity)}
  * answers here. The attachment API is named only inside {@code platform/}, per the seam rule.
  * {@link EliteClientState} is the reader, {@code LivingEntityRendererMixin} carries the
- * answer onto the render state, and {@link EliteGlowLayer} draws it. <b>No payload, no
+ * answer onto the render state, and {@link EliteAura} draws it. <b>No payload, no
  * receiver, no client-side cache</b> — see {@link EliteClientState} for why building one
- * would be strictly worse, and {@link EliteGlowRenderType} for why the glow is occluded by
+ * would be strictly worse, and {@link EliteAura} for why the aura is occluded by
  * walls when vanilla's glowing outline is not.
  *
  * <h2>Shape this class keeps when the port comes</h2>
@@ -89,13 +88,8 @@ import net.minecraft.resources.Identifier;
 public final class DireDifficultyClient implements ClientModInitializer {
 	@Override
 	public void onInitializeClient() {
-		// One glow layer on every living renderer. NOT filtered to MobCategory.MONSTER on
-		// purpose: eligibility is a server rule (docs/DESIGN.md §2.3 — the MONSTER test plus
-		// the dire_difficulty:elite_blacklist tag), and a second copy of it here would fail
-		// silently the day that rule widens. The layer draws whatever the server marked and
-		// nothing otherwise; see EliteGlowLayer.
-		LivingEntityRenderLayerRegistrationCallback.EVENT.register(
-				(entityType, renderer, helper, context) -> EliteGlowLayer.attach(renderer, helper));
+		// The rarity aura is drawn from LivingEntityRendererMixin (EliteAura), not a layer:
+		// it needs the pose stack at the entity origin, before the model is posed.
 
 		// The plate's crosshair pick and the Epic+ aura motes. Both are tick-rate behaviours,
 		// not frame-rate ones, so neither belongs in a render layer: a frame count is a frame

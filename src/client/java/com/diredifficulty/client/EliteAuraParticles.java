@@ -20,7 +20,7 @@ import net.minecraft.world.phys.AABB;
  * not an ordinary zombie", for the two tiers that earn it.
  *
  * <h2>Why a client ticker and not the render layer</h2>
- * {@link EliteGlowLayer} runs per entity per FRAME, and a frame count is a frame rate: the
+ * {@link EliteAura} runs per entity per FRAME, and a frame count is a frame rate: the
  * same elite would emit twice as fast at 120 fps as at 60. Particles are a tick-rate
  * behaviour, so they belong on {@code ClientTickEvents.END_CLIENT_TICK} where the cadence is
  * the game's, not the GPU's. It also keeps the render layer doing exactly one thing.

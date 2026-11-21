@@ -293,14 +293,8 @@ public final class Tuning {
 	// hold no matter what rolls. Nothing in the preset block above can reach them.
 	// =================================================================================
 
-	/**
-	 * <b>Guarantee A.</b> Outgoing elite damage against a PLAYER victim is clamped to this
-	 * fraction of the victim's max health, applied after every affix contribution and after
-	 * the rarity damage multiplier. A player at full health with no armour survives any
-	 * single elite hit, always. No affix participates in the clamp, which is exactly why no
-	 * affix review can break it.
-	 */
-	public static final float ELITE_HIT_CEILING = 0.55F;
+	// Guarantee A (ELITE_HIT_CEILING, a one-shot clamp on hits against players) was
+	// RETIRED 2026-11-21 by user decision: elites are meant to be truly dangerous.
 
 	/**
 	 * <b>Guarantee B1.</b> Ceiling on the effective-HP index a drawn affix set may reach,
@@ -669,73 +663,59 @@ public final class Tuning {
 	// a 40%-alpha tint modulated by the mob's own dark skin reads as a wash, not a glow.
 	// =================================================================================
 
-	// ---- The rarity glow. Two depth-tested emissive passes over the mob's own model:
-	// a sheen on the silhouette itself, and an inflated shell that becomes the halo.
-	// Both are alpha dials on `ENTITY_TRANSLUCENT_EMISSIVE`, which blends TRANSLUCENT —
-	// on a pipeline that blends ONE,ONE source alpha is not a factor at all, which is the
-	// measured trap `EliteGlowRenderType` documents for the port.
+	// ---- The rarity aura (rework 2026-11-21, second in-game look). The user read the
+	// old skin sheen + inflated shell as "a tinted copy of the texture, not bright". What
+	// was asked for instead: a glow AROUND the mob that also lights the mob and the ground
+	// near it, so an elite stands out in a crowd. Three parts, all client-side, all
+	// depth-tested (walls still hide every one of them):
+	//   1. the mob itself is lit as if it carried a light (block light raised on the state);
+	//   2. a soft additive disc behind the mob, facing the camera, that the body occludes
+	//      in its own silhouette, so it reads as light spilling out around the edges;
+	//   3. a soft additive pool projected onto the tops of the blocks around its feet.
+
+	/** Block light 0..15 the elite itself is drawn with, per rarity (never darker than real light). */
+	public static final int[] AURA_MOB_LIGHT = {10, 12, 14, 15};
+
+	/** Centre alpha 0..255 of the aura disc, per rarity. Additive, so this is brightness. */
+	public static final int[] AURA_ALPHA = {0x70, 0x90, 0xB8, 0xE0};
 
 	/**
-	 * Sheen alpha 0..255 on the mob's own silhouette, per rarity. Uncommon is a hint;
-	 * Legendary is meant to be unmistakable at thirty blocks.
+	 * Aura disc radius as a multiple of the mob's own half-height plus
+	 * {@link #AURA_RADIUS_PAD}, per rarity.
 	 */
-	public static final int[] GLOW_SKIN_ALPHA = {0x40, 0x70, 0xA0, 0xCC};
+	public static final double[] AURA_RADIUS_SCALE = {1.35, 1.5, 1.7, 1.95};
 
-	/**
-	 * Halo-shell alpha 0..255, per rarity. Zero disables the shell for that rarity while
-	 * leaving the sheen alone.
-	 *
-	 * <p>The shell is the mob's model drawn again slightly larger. Its BACK faces sit
-	 * behind the mob's own body, which already wrote depth in the opaque pass, so they are
-	 * occluded everywhere the body covers them and survive only in the rim — the rim
-	 * therefore gets both faces and reads brighter than the middle. That double
-	 * contribution is what makes the pass read as a halo rather than as more tint.
-	 */
-	public static final int[] GLOW_HALO_ALPHA = {0x18, 0x30, 0x50, 0x74};
+	/** Blocks added to the half-height before scaling, so small mobs still get a visible aura. */
+	public static final double AURA_RADIUS_PAD = 0.35;
 
-	/**
-	 * Halo-shell inflation, per rarity. {@code 1.0} disables the shell for that rarity.
-	 * Kept small: this is a rim, not a bubble, and the shell shares the base model's alpha
-	 * cutout so it still hugs the real silhouette.
-	 */
-	public static final double[] GLOW_HALO_INFLATE = {1.025, 1.040, 1.055, 1.075};
+	/** Ground light pool radius in blocks, per rarity. */
+	public static final double[] AURA_POOL_RADIUS = {2.0, 2.5, 3.0, 3.75};
+
+	/** Centre alpha 0..255 of the ground pool, per rarity. */
+	public static final int[] AURA_POOL_ALPHA = {0x48, 0x60, 0x7C, 0x9C};
+
+	/** Elites farther than this from the camera skip the ground pool (block lookups per frame). */
+	public static final double AURA_POOL_MAX_DISTANCE = 48.0;
 
 	/**
 	 * Peak swing of the pulse either side of a rarity's alpha, as a fraction of it.
-	 * {@code 0.0} freezes the glow. Applied to both passes so they breathe together.
+	 * {@code 0.0} freezes the aura.
 	 */
-	public static final double GLOW_PULSE_AMPLITUDE = 0.30;
+	public static final double GLOW_PULSE_AMPLITUDE = 0.18;
 
 	/** Ticks per full pulse cycle. 50 is one slow breath every two and a half seconds. */
 	public static final double GLOW_PULSE_PERIOD_TICKS = 50.0;
 
 	/**
-	 * Model-space Y the halo shell is scaled about, in blocks below the model origin.
-	 *
-	 * <p>At layer time the pose stack sits where {@code LivingEntityRenderer.submit} left
-	 * it: {@code translate(0, -1.501, 0)} after a {@code scale(-1, -1, 1)} flip, so the
-	 * origin is at the mob's shoulders and +Y runs downward to the feet at 1.5. Scaling
-	 * about the raw origin would sink a Legendary's feet ~11 cm into the floor; scaling
-	 * about the mid-body point halves the worst-case drift and centres it. 0.75 is exactly
-	 * half of vanilla's 1.501 model offset, so it is the body centre for every model that
-	 * stands on the ground rather than a number picked by eye.
-	 */
-	public static final double GLOW_HALO_PIVOT_Y = 0.75;
-
-	/**
-	 * Pulse multiplier on a glow alpha at an entity's own age in ticks.
-	 *
-	 * <p>Driven by {@code EntityRenderState.ageInTicks} ({@code entity.tickCount +
-	 * partialTicks}) rather than by level time, so every elite carries its own phase. A
-	 * pack lit off one clock pulses in lockstep and reads as a strobe; per-entity phase
-	 * reads as several things breathing.
+	 * Pulse multiplier on an aura alpha at an entity's own age in ticks. Per-entity phase,
+	 * so a pack breathes out of step instead of strobing together.
 	 */
 	public static double glowPulse(final double ageInTicks) {
 		return 1.0 + GLOW_PULSE_AMPLITUDE
 				* Math.sin(ageInTicks * (2.0 * Math.PI / GLOW_PULSE_PERIOD_TICKS));
 	}
 
-	/** A glow alpha after the pulse, clamped into the 0..255 the colour packer wants. */
+	/** An alpha after the pulse, clamped into 0..255. */
 	public static int glowAlpha(final int baseAlpha, final double pulse) {
 		return clampInt((int) Math.round(baseAlpha * pulse), 0, 255);
 	}
