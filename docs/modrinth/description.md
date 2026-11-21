@@ -8,13 +8,13 @@ Once you have full enchanted diamond or netherite gear, nothing in Minecraft can
 - **Dire Difficulty is tied to the difficulty settings of your world:** at higher difficulties the mod will increase the spawn rates even higher. 
 - **Elites.** Some monsters spawn as elites: bigger and stronger. Each one has up to five abilities, such as teleporting, summoning, life drain or freezing hits. Look at an elite to see its name, health and abilities.
 
-![Elites of every rarity](lineup.png)
+<p align="left"><img src="lineup.png" alt="Elites of every rarity" width="440"></p>
 
 - **Five rarities:** Uncommon, Rare, Epic, Legendary and Mythical.
 - **Mythicals.** After you kill the Ender Dragon or a Wither, Mythical elites start appearing in certain places: Nether biomes, fortresses, bastions, pillager outposts, woodland mansions, the last wave of a raid. Overworld is limited to only spawn endermen as Mythical enemies. 
 - **Artefacts.** Every Mythical carries one named artefact and always drops it. Some have enchantments above the vanilla limit, others have bonuses that vanilla enchantments don't normally allow. 
 
-![Artefacts](artefacts.gif)
+<p align="left"><img src="artefacts.gif" alt="Artefacts" width="350"></p>
 
 - **Loot.** Elites drop a little extra: a few crafting material such as iron ingots, gold ingots, diamonds. Legendary and Mythical drop an enchanted book. 
 
