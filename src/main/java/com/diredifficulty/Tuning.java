@@ -694,6 +694,27 @@ public final class Tuning {
 	 */
 	public static final double AURA_GROUND_FADE = 0.7;
 
+	/**
+	 * Distance from any nearby block, in blocks, over which the aura disc fades in. Touching a
+	 * wall, step or slope it is fully transparent, so it never cuts a hard line into one.
+	 */
+	public static final double AURA_WALL_FADE = 0.6;
+
+	// ------------------------------------------------------------------ elite voice
+
+	/**
+	 * Pitch multiplier on every sound an elite makes, per rarity. Minecraft plays a lower
+	 * pitch slower too, so this is "deeper and slower" in one number. The client clamps the
+	 * final pitch at 0.5, which the creeper's fuse hiss already sits on.
+	 */
+	public static final float[] ELITE_VOICE_PITCH = {0.85F, 0.75F, 0.67F, 0.6F};
+
+	/**
+	 * Volume multiplier on every sound an elite makes, per rarity. Above 1.0 Minecraft does
+	 * not get louder up close; it carries farther (hearing range is 16 blocks times volume).
+	 */
+	public static final float[] ELITE_VOICE_VOLUME = {1.25F, 1.5F, 2.0F, 2.5F};
+
 	/** Ground light pool radius in blocks, per rarity. */
 	public static final double[] AURA_POOL_RADIUS = {2.0, 2.5, 3.0, 3.75};
 

@@ -30,7 +30,9 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.ChunkAccess;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.VoxelShape;
 
 import org.joml.Vector3f;
 
@@ -65,6 +67,12 @@ public final class EliteAura {
 
 	/** Block tops lit by the pool, as (x, y, z) triples relative to the entity origin. */
 	public static final RenderStateDataKey<float[]> POOL_KEY = RenderStateDataKey.create();
+
+	/**
+	 * Solid block boxes near the disc, as (minX, minY, minZ, maxX, maxY, maxZ) relative to the
+	 * entity origin. The disc fades out near them, so it never cuts a hard line into a wall.
+	 */
+	public static final RenderStateDataKey<float[]> WALL_KEY = RenderStateDataKey.create();
 
 	private static final int SEGMENTS = 24;
 	/** Ring count of the disc; enough that per-vertex fades interpolate smoothly. */
@@ -126,6 +134,86 @@ public final class EliteAura {
 		}
 	}
 
+	/**
+	 * Collects the collision boxes of blocks the disc could pass into: every non-empty block
+	 * in a cube around the mob's middle that has at least one open neighbour (buried blocks
+	 * can never touch the disc). The disc fades near these on the CPU — a soft intersection
+	 * without reading the depth buffer.
+	 */
+	public static void extractWalls(final Level level, final LivingEntityRenderState state,
+			final Rarity rarity) {
+		if (state.distanceToCameraSq > Tuning.AURA_POOL_MAX_DISTANCE * Tuning.AURA_POOL_MAX_DISTANCE) {
+			return;
+		}
+
+		float halfHeight = state.boundingBoxHeight * 0.5F;
+		double reach = discRadius(state, rarity) + state.boundingBoxWidth * 0.6 + 0.05
+				+ Tuning.AURA_WALL_FADE;
+		double cy = state.y + halfHeight;
+		int x0 = Mth.floor(state.x - reach);
+		int x1 = Mth.floor(state.x + reach);
+		int y0 = Math.max(Mth.floor(state.y) - 1, Mth.floor(cy - reach));
+		int y1 = Mth.floor(cy + reach);
+		int z0 = Mth.floor(state.z - reach);
+		int z1 = Mth.floor(state.z + reach);
+		float[] out = new float[64 * 6];
+		int n = 0;
+		BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
+		BlockPos.MutableBlockPos side = new BlockPos.MutableBlockPos();
+
+		for (int x = x0; x <= x1; x++) {
+			for (int z = z0; z <= z1; z++) {
+				for (int y = y0; y <= y1; y++) {
+					pos.set(x, y, z);
+					BlockState block = level.getBlockState(pos);
+
+					if (block.isAir() || block.getRenderShape() == RenderShape.INVISIBLE) {
+						continue;
+					}
+
+					VoxelShape shape = block.getCollisionShape(level, pos);
+
+					if (shape.isEmpty() || !exposed(level, pos, side)) {
+						continue;
+					}
+
+					AABB box = shape.bounds();
+
+					if (n + 6 > out.length) {
+						out = java.util.Arrays.copyOf(out, out.length * 2);
+					}
+
+					out[n++] = (float) (x + box.minX - state.x);
+					out[n++] = (float) (y + box.minY - state.y);
+					out[n++] = (float) (z + box.minZ - state.z);
+					out[n++] = (float) (x + box.maxX - state.x);
+					out[n++] = (float) (y + box.maxY - state.y);
+					out[n++] = (float) (z + box.maxZ - state.z);
+				}
+			}
+		}
+
+		if (n > 0) {
+			((FabricRenderState) state).setData(WALL_KEY, java.util.Arrays.copyOf(out, n));
+		}
+	}
+
+	private static boolean exposed(final Level level, final BlockPos pos, final BlockPos.MutableBlockPos side) {
+		for (net.minecraft.core.Direction direction : net.minecraft.core.Direction.values()) {
+			side.setWithOffset(pos, direction);
+
+			if (!level.getBlockState(side).isCollisionShapeFullBlock(level, side)) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	private static float discRadius(final LivingEntityRenderState state, final Rarity rarity) {
+		return (float) ((state.boundingBoxHeight * 0.5F + Tuning.AURA_RADIUS_PAD) * rarity.auraRadiusScale());
+	}
+
 	// ------------------------------------------------------------------ submission
 
 	/** Called with the pose stack at the entity's origin, before the model is posed. */
@@ -159,7 +247,7 @@ public final class EliteAura {
 			final SubmitNodeCollector collector, final CameraRenderState camera, final Rarity rarity,
 			final int rgb, final int alpha) {
 		float halfHeight = state.boundingBoxHeight * 0.5F;
-		float radius = (float) ((halfHeight + Tuning.AURA_RADIUS_PAD) * rarity.auraRadiusScale());
+		float radius = discRadius(state, rarity);
 
 		// Push the disc to the far side of the body, so the body covers its middle and the
 		// light shows around the silhouette.
@@ -172,42 +260,90 @@ public final class EliteAura {
 
 		Vector3f right = camera.orientation.transform(new Vector3f(1.0F, 0.0F, 0.0F));
 		Vector3f up = camera.orientation.transform(new Vector3f(0.0F, 1.0F, 0.0F));
+		float[] walls = ((FabricRenderState) state).getData(WALL_KEY);
+
+		// Every grid point once: position and colour, so the per-vertex wall test is not
+		// repeated for the four quads that share it.
+		int points = (RINGS + 1) * SEGMENTS;
+		float[] px = new float[points];
+		float[] py = new float[points];
+		float[] pz = new float[points];
+		int[] colour = new int[points];
+
+		for (int ring = 0; ring <= RINGS; ring++) {
+			float t = (float) ring / RINGS;
+			float radial = (float) Math.pow(1.0F - t, 1.6);
+
+			for (int i = 0; i < SEGMENTS; i++) {
+				double angle = i * (Math.PI * 2.0 / SEGMENTS);
+				float u = (float) Math.cos(angle) * t * radius;
+				float v = (float) Math.sin(angle) * t * radius;
+				int k = ring * SEGMENTS + i;
+				float x = cx + right.x * u + up.x * v;
+				float y = cy + right.y * u + up.y * v;
+				float z = cz + right.z * u + up.z * v;
+				px[k] = x;
+				py[k] = y;
+				pz[k] = z;
+				float fade = radial <= 0.0F ? 0.0F
+						: radial * Math.min(smooth(y / (float) Tuning.AURA_GROUND_FADE), wallFade(walls, x, y, z));
+				colour[k] = ARGB.color(Math.round(alpha * fade), rgb);
+			}
+		}
 
 		collector.submitCustomGeometry(poseStack, TYPE, (pose, buffer) -> {
 			for (int ring = 0; ring < RINGS; ring++) {
-				float tIn = (float) ring / RINGS;
-				float tOut = (float) (ring + 1) / RINGS;
-
 				for (int i = 0; i < SEGMENTS; i++) {
-					double a0 = i * (Math.PI * 2.0 / SEGMENTS);
-					double a1 = (i + 1) * (Math.PI * 2.0 / SEGMENTS);
-					discVertex(buffer, pose, cx, cy, cz, right, up, a0, tIn, radius, rgb, alpha);
-					discVertex(buffer, pose, cx, cy, cz, right, up, a0, tOut, radius, rgb, alpha);
-					discVertex(buffer, pose, cx, cy, cz, right, up, a1, tOut, radius, rgb, alpha);
-					discVertex(buffer, pose, cx, cy, cz, right, up, a1, tIn, radius, rgb, alpha);
+					int j = (i + 1) % SEGMENTS;
+					discVertex(buffer, pose, px, py, pz, colour, ring * SEGMENTS + i);
+					discVertex(buffer, pose, px, py, pz, colour, (ring + 1) * SEGMENTS + i);
+					discVertex(buffer, pose, px, py, pz, colour, (ring + 1) * SEGMENTS + j);
+					discVertex(buffer, pose, px, py, pz, colour, ring * SEGMENTS + j);
 				}
 			}
 		});
 	}
 
-	/**
-	 * One disc vertex at fraction {@code t} of the radius. Alpha falls off radially and also
-	 * fades out as the vertex nears the mob's feet level: the disc is flat and would otherwise
-	 * cut a hard line where it passes into the ground. Below the feet it is fully transparent;
-	 * the ground pool carries the light there instead.
-	 */
 	private static void discVertex(final VertexConsumer buffer, final PoseStack.Pose pose,
-			final float cx, final float cy, final float cz, final Vector3f right, final Vector3f up,
-			final double angle, final float t, final float radius, final int rgb, final int alpha) {
-		float u = (float) Math.cos(angle) * t * radius;
-		float v = (float) Math.sin(angle) * t * radius;
-		float x = cx + right.x * u + up.x * v;
-		float y = cy + right.y * u + up.y * v;
-		float z = cz + right.z * u + up.z * v;
-		float radial = (float) Math.pow(1.0F - t, 1.6);
-		float g = Mth.clamp(y / (float) Tuning.AURA_GROUND_FADE, 0.0F, 1.0F);
-		float ground = g * g * (3.0F - 2.0F * g);
-		buffer.addVertex(pose, x, y, z).setColor(ARGB.color(Math.round(alpha * radial * ground), rgb));
+			final float[] px, final float[] py, final float[] pz, final int[] colour, final int k) {
+		buffer.addVertex(pose, px[k], py[k], pz[k]).setColor(colour[k]);
+	}
+
+	/** Smoothstep of {@code g} clamped to 0..1. */
+	private static float smooth(final float g) {
+		float c = Mth.clamp(g, 0.0F, 1.0F);
+		return c * c * (3.0F - 2.0F * c);
+	}
+
+	/**
+	 * 0 inside or touching a nearby block, rising smoothly to 1 at {@code AURA_WALL_FADE}
+	 * blocks away. This is what keeps the flat disc from cutting a hard line into a wall,
+	 * a step or a slope: wherever it meets a block it has already faded out.
+	 */
+	private static float wallFade(final float[] walls, final float x, final float y, final float z) {
+		if (walls == null) {
+			return 1.0F;
+		}
+
+		float fade = (float) Tuning.AURA_WALL_FADE;
+		float nearestSq = fade * fade;
+
+		for (int i = 0; i < walls.length; i += 6) {
+			float dx = Math.max(Math.max(walls[i] - x, 0.0F), x - walls[i + 3]);
+			float dy = Math.max(Math.max(walls[i + 1] - y, 0.0F), y - walls[i + 4]);
+			float dz = Math.max(Math.max(walls[i + 2] - z, 0.0F), z - walls[i + 5]);
+			float dSq = dx * dx + dy * dy + dz * dz;
+
+			if (dSq < nearestSq) {
+				nearestSq = dSq;
+
+				if (dSq == 0.0F) {
+					return 0.0F;
+				}
+			}
+		}
+
+		return smooth((float) Math.sqrt(nearestSq) / fade);
 	}
 
 	private static void submitPool(final PoseStack poseStack, final SubmitNodeCollector collector,

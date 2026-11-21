@@ -88,6 +88,7 @@ public abstract class LivingEntityRendererMixin {
 				state.lightCoords = LightCoordsUtil.lightCoordsWithEmission(state.lightCoords,
 						rarity.auraMobLight());
 				EliteAura.extractPool(entity.level(), state, rarity);
+				EliteAura.extractWalls(entity.level(), state, rarity);
 			}
 		}
 	}

@@ -67,6 +67,16 @@ public enum Rarity {
 		return Tuning.AURA_POOL_ALPHA[ordinal()];
 	}
 
+	/** Pitch multiplier on every sound this elite makes. */
+	public float voicePitch() {
+		return Tuning.ELITE_VOICE_PITCH[ordinal()];
+	}
+
+	/** Volume (hearing range) multiplier on every sound this elite makes. */
+	public float voiceVolume() {
+		return Tuning.ELITE_VOICE_VOLUME[ordinal()];
+	}
+
 	/** {@code MAX_HEALTH} multiplier. */
 	public double maxHealthMultiplier() {
 		return Tuning.RARITY_MAX_HEALTH[ordinal()];
