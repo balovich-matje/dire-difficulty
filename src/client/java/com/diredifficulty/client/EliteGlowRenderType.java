@@ -88,6 +88,6 @@ public final class EliteGlowRenderType {
 	 * renderer's {@code getTextureLocation(state)}.
 	 */
 	public static RenderType forEntityTexture(final Identifier texture) {
-		return RenderTypes.entityTranslucentEmissive(texture, false);
+		return RenderTypes.entityTranslucentEmissive(texture);
 	}
 }

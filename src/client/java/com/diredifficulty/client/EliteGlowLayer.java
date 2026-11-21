@@ -246,7 +246,6 @@ public final class EliteGlowLayer<S extends LivingEntityRenderState, M extends E
 				// render type already declines the outline pass (affectsOutline=false); a
 				// non-zero outline colour here would be the other way into entityOutlineTarget,
 				// whose blit ignores scene depth. Both doors stay shut.
-				EntityRenderState.NO_OUTLINE,
-				null);
+				EntityRenderState.NO_OUTLINE);
 	}
 }
