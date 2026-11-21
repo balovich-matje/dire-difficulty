@@ -5,6 +5,7 @@ mod.name = "Dire Difficulty"
 mod.group = "com.diredifficulty"
 mod.version = "1.0.0"
 mod.java_floor = "25"
+mod.modrinth_id = "U8QlGapz"
 
 deps.fabric_loader = "0.19.3"
 
