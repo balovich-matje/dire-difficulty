@@ -74,6 +74,16 @@ public enum Rarity {
 		return Tuning.ELITE_VOICE_PITCH[ordinal()];
 	}
 
+	/** Footstep volume multiplier. */
+	public float stepVolume() {
+		return Tuning.ELITE_STEP_VOLUME[ordinal()];
+	}
+
+	/** Volume of the heavy layer under each footstep; 0 = none. */
+	public float stepWeightVolume() {
+		return Tuning.ELITE_STEP_WEIGHT_VOLUME[ordinal()];
+	}
+
 	/** Volume (hearing range) multiplier on every sound this elite makes. */
 	public float voiceVolume() {
 		return Tuning.ELITE_VOICE_VOLUME[ordinal()];

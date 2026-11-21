@@ -685,6 +685,20 @@ public final class Tuning {
 	 */
 	public static final float[] ELITE_VOICE_VOLUME = {1.25F, 1.5F, 2.0F, 2.5F, 3.5F};
 
+	/**
+	 * Footstep volume multiplier per rarity. Steps start at 0.15; above 1.0 they carry
+	 * farther (Mythical 0.15 x 8 = 1.2, heard from ~19 blocks).
+	 */
+	public static final float[] ELITE_STEP_VOLUME = {1.5F, 2.0F, 3.0F, 5.0F, 8.0F};
+
+	/**
+	 * Volume of the low "weight" layer played under each footstep, per rarity; 0 = none.
+	 * Minecraft has no EQ, so bass comes from layering a heavy step pitched down.
+	 */
+	public static final float[] ELITE_STEP_WEIGHT_VOLUME = {0.0F, 0.0F, 0.12F, 0.25F, 0.6F};
+
+	public static final float ELITE_STEP_WEIGHT_PITCH = 0.55F;
+
 	/** Ground light pool radius in blocks, per rarity. */
 	public static final double[] AURA_POOL_RADIUS = {2.0, 2.5, 3.0, 3.75, 4.5};
 
