@@ -27,4 +27,7 @@ With Mod Menu and Cloth Config installed, everything can be changed in game:
 
 ## Requirements
 
-Fabric, Minecraft 26.3 or 26.2, Fabric API. Install on both the client and the server.
+Fabric, Minecraft 26.3 or 26.2, Fabric API.
+
+- Singleplayer: install it like any mod.
+- Servers: required on the server. Optional on the client: players without it can still join and play, but won't see the rarity glow, the info plate or the settings screen.
