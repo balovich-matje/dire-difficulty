@@ -7,15 +7,15 @@ Once you have full enchanted diamond or netherite gear, nothing in Minecraft can
 ## How it works
 
 - **The world grows with you.** The mod tracks your completed advancements, hostile mobs killed, distance travelled and time since your last death. As those go up, monsters get more dangerous: more elites, rarer elites, more spawns. A fresh world plays almost like vanilla.
-- **Your world difficulty sets the limit.** Easy goes a quarter of the way, Normal half, Hard all the way.
-- **Elites.** Some monsters spawn as elites: bigger, stronger and glowing in their rarity colour, with a deeper voice and heavier footsteps you can hear coming. Each one has up to five abilities, such as teleporting, summoning, life drain or freezing hits. Look at an elite to see its name, health and abilities.
+- **Dire Difficulty is tied to the difficulty settings of your world:** at higher difficulties the mod will increase the spawn rates even higher. 
+- **Elites.** Some monsters spawn as elites: bigger and stronger. Each one has up to five abilities, such as teleporting, summoning, life drain or freezing hits. Look at an elite to see its name, health and abilities.
 - **Five rarities:** Uncommon, Rare, Epic, Legendary and Mythical.
-- **Mythicals.** After you kill the Ender Dragon or a Wither, Mythical elites start appearing in certain places: Nether biomes, fortresses, bastions, pillager outposts, woodland mansions, the last wave of a raid, and endermen in the Overworld. They have 512 hearts and hit very hard. Running away is a valid strategy.
-- **Artefacts.** Every Mythical carries one named artefact and always drops it. Some have enchantments above the vanilla limit, others have bonuses no enchantment gives.
+- **Mythicals.** After you kill the Ender Dragon or a Wither, Mythical elites start appearing in certain places: Nether biomes, fortresses, bastions, pillager outposts, woodland mansions, the last wave of a raid. Overworld is limited to only spawn endermen as Mythical enemies. 
+- **Artefacts.** Every Mythical carries one named artefact and always drops it. Some have enchantments above the vanilla limit, others have bonuses that vanilla enchantments don't normally allow. 
 
 ![Artefacts](artefacts.gif)
 
-- **Loot.** Elites drop a little extra: a few ingots, and from Legendary up an enchanted book. Not enough to replace mining.
+- **Loot.** Elites drop a little extra: a few crafting material such as iron ingots, gold ingots, diamonds. Legendary and Mythical drop an enchanted book. 
 
 ## Settings
 
