@@ -29,7 +29,7 @@ def crop_tooltip(img):
     w, h = img.size
 
     def tooltip_bg(p):
-        return p[0] < 45 and p[1] < 25 and p[2] < 45 and abs(p[0] - p[2]) < 12
+        return p[0] < 45 and p[1] < 25 and p[2] < 45 and abs(p[0] - p[2]) < 12 and p[0] - p[1] >= 8
 
     for x in range(w):
         if sum(tooltip_bg(img.getpixel((x, y))) for y in range(h)) > h * 0.7:
