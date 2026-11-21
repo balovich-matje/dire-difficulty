@@ -109,7 +109,8 @@ public final class EliteTicker {
 	private static void tickElite(final ServerLevel level, final Mob mob) {
 		EliteData data = EliteMob.data(mob);
 
-		if (data == null || !data.isElite()) {
+		// A frozen elite (/dire freeze, NoAI) is a statue: no affix ticks, no dominance.
+		if (data == null || !data.isElite() || mob.isNoAi()) {
 			return;
 		}
 

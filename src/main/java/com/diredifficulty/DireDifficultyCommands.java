@@ -147,6 +147,7 @@ public final class DireDifficultyCommands {
 							.then(namesCommand(registries))
 							.then(lootCommand())
 							.then(artefactCommand())
+							.then(freezeCommand())
 							.then(Commands.literal("rufus").executes(context -> {
 								CommandSourceStack source = context.getSource();
 								com.diredifficulty.elite.Rufus.spawnAt(source.getLevel(), BlockPos.containing(source.getPosition()));
@@ -569,6 +570,51 @@ public final class DireDifficultyCommands {
 		source.sendSuccess(() -> Component.translatable(KEY + "names.done", count, rarity.name(),
 				family, unique, EliteNames.affixBankCount(), EliteNames.familyBankCount()), true);
 		return 1;
+	}
+
+	// --- /dire freeze ---
+
+	/**
+	 * Screenshot helper: toggles NoAI on every elite within 32 blocks and turns them to face the
+	 * caller. Frozen elites also skip their affix ticks (EliteTicker). Run again to release.
+	 */
+	private static LiteralArgumentBuilder<CommandSourceStack> freezeCommand() {
+		return Commands.literal("freeze").executes(context -> {
+			CommandSourceStack source = context.getSource();
+			ServerLevel level = source.getLevel();
+			net.minecraft.world.phys.Vec3 at = source.getPosition();
+			List<Mob> elites = level.getEntitiesOfClass(Mob.class,
+					new net.minecraft.world.phys.AABB(at, at).inflate(32.0), EliteMob::isElite);
+			boolean freeze = false;
+
+			for (final Mob mob : elites) {
+				if (!mob.isNoAi()) {
+					freeze = true;
+					break;
+				}
+			}
+
+			for (final Mob mob : elites) {
+				mob.setNoAi(freeze);
+
+				if (freeze) {
+					mob.setTarget(null);
+					mob.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO);
+					double dx = at.x - mob.getX();
+					double dz = at.z - mob.getZ();
+					float yaw = (float) (Math.toDegrees(Math.atan2(dz, dx)) - 90.0);
+					mob.setYRot(yaw);
+					mob.setYHeadRot(yaw);
+					mob.setYBodyRot(yaw);
+					mob.setXRot(0.0F);
+				}
+			}
+
+			int count = elites.size();
+			boolean frozen = freeze;
+			source.sendSuccess(() -> Component.literal((frozen ? "Froze " : "Released ") + count + " elites"), true);
+			return count;
+		});
 	}
 
 	// --- /dire artefact <id> ---
