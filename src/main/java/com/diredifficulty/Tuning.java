@@ -318,6 +318,8 @@ public final class Tuning {
 	public static final double RUFUS_KNOCKBACK = 3.0;
 	public static final double RUFUS_LIFT = 0.45;
 	public static final double RUFUS_CHARGE_SPEED = 1.8;
+	/** Spotting range multiplier bonus: +1.0 doubles the cow's 16 blocks to 32. */
+	public static final double RUFUS_FOLLOW_RANGE_BONUS = 1.0;
 
 	/** Bloodletter: share of melee damage dealt returned as health. */
 	public static final float ARTEFACT_LIFESTEAL = 0.2F;

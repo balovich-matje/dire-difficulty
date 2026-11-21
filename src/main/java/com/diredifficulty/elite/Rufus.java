@@ -91,6 +91,11 @@ public final class Rufus {
 	}
 
 	private static void installGoals(final Cow cow) {
+		// Spotting range (FOLLOW_RANGE drives the target goal). Re-applied on every load so a
+		// Rufus from before this change picks it up too; the modifier is keyed, so no stacking.
+		EliteAttributes.set(cow, Attributes.FOLLOW_RANGE, EliteAttributes.id("rufus_follow_range"),
+				Tuning.RUFUS_FOLLOW_RANGE_BONUS, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
+
 		MobGoalsAccessor goals = (MobGoalsAccessor) cow;
 		goals.direDifficulty$goalSelector().removeAllGoals(goal -> goal instanceof PanicGoal);
 		goals.direDifficulty$goalSelector().addGoal(1, new Charge(cow));

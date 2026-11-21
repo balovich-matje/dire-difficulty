@@ -1613,5 +1613,6 @@ Elites must never make mining pointless. One material per kill, by weight from t
 
 - Easter egg, nod to the farm channel's giant bull. Natural/chunk-gen adult cow in a `spawns_warm_variant_farm_animals` biome, chance 0.003, no dragon gate (respects spawnElites). Becomes Mythical (no affixes, no artefact), warm variant, +35% extra scale, fixed name "Rufus the Bull", persistent, entity tag `dire_difficulty_rufus`.
 - AI (re-installed on every ENTITY_LOAD, goals aren't saved): PanicGoal removed; Charge (MeleeAttackGoal, speed x1.8) with its own hit because cows have no ATTACK_DAMAGE attribute — 8 base (x3 Mythical funnel = 24), knockback 3.0 + lift 0.45; HurtByTargetGoal (charges whoever hits him); NearestAttackableTargetGoal on every `Enemy`.
+- Spotting range x2 (FOLLOW_RANGE +100%, 32 blocks), user request after in-game pass (knockback + speed confirmed right).
 - `/dire rufus` spawns him. AI verified in-game only (headless servers stop ticking mobs with no player).
 - Mod icon: draft E (wither skeleton head, red aura) → `assets/dire_difficulty/icon.png`.
