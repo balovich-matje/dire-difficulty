@@ -1590,3 +1590,11 @@ Elites must never make mining pointless. One material per kill, by weight from t
 - Stage drives: elite chance (0.01 → 0.35, exp 1.6), rarity weights, spawn frequency (per chunk, 1 → `spawnFrequencyAtMax`), mob cap + despawn distance (highest online stage, 1 → `…AtMax`). Bonus affixes / legendary floor / affix-class whitelist gone (fixed 0 / all).
 - Config: General (spawnElites, modifySpawns, theHunt), Elites (elitePlate, eliteGearDrops default OFF, eliteGlow), Spawning (daySpawning, daySpawnBurnImmunity, three `…AtMax` multipliers). `allMobGearDrops` removed → vanilla handles non-elite gear. Multipliers renamed so old files' values are ignored.
 - `/dire preset` removed; `/dire score` prints the four factors, cap and stage.
+
+### 13.z Mythical tier + artefacts (2026-11-21, user decision)
+
+- `Rarity.MYTHICAL`, fifth column in every per-rarity Tuning array. Colour 0xFF3A3A, red boss-bar plate, 5 slots / 12 budget, damage x3, scale 1.45, xp x6, netherite gear, voice pitch 0.5. Never drawn by the normal roll (`MAX_RARITY_TIER` = 4).
+- Health: rarity x4 plus a 1000 floor; vanilla's MAX_HEALTH attribute caps it at 1024 (512 hearts, Warden 250). Full knockback resistance. EHP audit unchanged (index uses the multiplier, so defensive affixes are still trimmed).
+- `MythicalSpawns`: NATURAL — zombified piglin/Nether Wastes, piglin/Crimson Forest, skeleton/Soul Sand Valley, wither skeleton in fortress pieces, pillager in an outpost (chance 0.004); STRUCTURE — piglin brute, vindicator, evoker (bastions, mansions; 0.08; may run off-thread, so only a cached any-player-unlocked flag); EVENT — vindicator/evoker of a raid's final or bonus wave (0.25). Gate: nearest player killed the Ender Dragon (advancement) or a Wither (stat). Natural/raid: no living mythical within 128, 20-min per-dimension cooldown.
+- `Artefact`: 13 fixed items, one per Mythical (by mob type, the slot that shows it), guaranteed drop (`setGuaranteedDrop`, survives `eliteGearDrops` off). Styled custom name (mythical red, bold, not italic), grey italic lore, EPIC rarity, custom data `dire_difficulty_artefact`. Shield = offhand +4 armour +2 toughness (Protection does nothing on a shield). Galeskippers = +40% speed attribute (Speed II equivalent). Golden sword keeps 32 durability by design (mend it).
+- `/dire artefact <id>` gives one; `/dire spawn <entity> mythical` spawns one.

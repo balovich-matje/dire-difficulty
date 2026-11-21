@@ -68,11 +68,17 @@ public final class EliteRoller {
 	 */
 	public static void onFinalizeSpawn(final Mob mob, final ServerLevelAccessor accessor,
 			final EntitySpawnReason reason) {
-		if (!ConfigManager.get().spawnElites || !isRollableReason(reason) || !isEligible(mob)) {
+		if (!ConfigManager.get().spawnElites || !isEligible(mob)) {
 			return;
 		}
 
 		ServerLevel level = accessor.getLevel();
+
+		// Mythicals first: their own places, reasons and gate. A hit replaces the normal roll.
+		if (MythicalSpawns.tryPromote(mob, level, reason) || !isRollableReason(reason)) {
+			return;
+		}
+
 		EliteRules rules = EliteRules.active();
 		RandomSource random = level.getRandom();
 		double score = ScoreSource.active().scoreAt(level, mob.blockPosition());
@@ -165,6 +171,8 @@ public final class EliteRoller {
 				return Tuning.rarityWeightRare(score);
 			case EPIC:
 				return Tuning.rarityWeightEpic(score);
+			case MYTHICAL:
+				return 0.0;
 			case LEGENDARY:
 			default:
 				return Tuning.rarityWeightLegendary(score, rules.legendaryWeightFloor());
@@ -224,6 +232,10 @@ public final class EliteRoller {
 		// Only into slots vanilla left empty, and only through setItemSlot/setDropChance — so
 		// vanilla's own rare-drop roll and its damaged-on-drop path apply untouched. See
 		// EliteGear for the measured ordering against a subclass's own equipment work.
+		if (rarity == Rarity.MYTHICAL) {
+			MythicalSpawns.applyMythical(level, mob, level.getRandom());
+		}
+
 		EliteGear.equip(level, mob, rarity, level.getRandom());
 
 		EliteNameTag.apply(mob, rarity, EliteMob.nameOf(mob));

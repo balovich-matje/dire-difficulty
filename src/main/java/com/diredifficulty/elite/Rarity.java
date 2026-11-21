@@ -24,7 +24,9 @@ public enum Rarity {
 	UNCOMMON,
 	RARE,
 	EPIC,
-	LEGENDARY;
+	LEGENDARY,
+	/** Fifth tier: never rolled normally, see {@code MythicalSpawns}. */
+	MYTHICAL;
 
 	private static final Rarity[] VALUES = values();
 

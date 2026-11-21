@@ -93,13 +93,15 @@ public final class ElitePlate {
 			Identifier.withDefaultNamespace("boss_bar/green_background"),
 			Identifier.withDefaultNamespace("boss_bar/blue_background"),
 			Identifier.withDefaultNamespace("boss_bar/purple_background"),
-			Identifier.withDefaultNamespace("boss_bar/yellow_background")};
+			Identifier.withDefaultNamespace("boss_bar/yellow_background"),
+			Identifier.withDefaultNamespace("boss_bar/red_background")};
 
 	private static final Identifier[] BAR_PROGRESS = {
 			Identifier.withDefaultNamespace("boss_bar/green_progress"),
 			Identifier.withDefaultNamespace("boss_bar/blue_progress"),
 			Identifier.withDefaultNamespace("boss_bar/purple_progress"),
-			Identifier.withDefaultNamespace("boss_bar/yellow_progress")};
+			Identifier.withDefaultNamespace("boss_bar/yellow_progress"),
+			Identifier.withDefaultNamespace("boss_bar/red_progress")};
 
 	private ElitePlate() {
 	}

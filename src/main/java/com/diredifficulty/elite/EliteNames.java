@@ -192,6 +192,8 @@ public final class EliteNames {
 
 	private static double epithetChance(final Rarity rarity) {
 		switch (rarity) {
+			case MYTHICAL:
+				return Tuning.NAME_EPITHET_CHANCE_MYTHICAL;
 			case LEGENDARY:
 				return Tuning.NAME_EPITHET_CHANCE_LEGENDARY;
 			case EPIC:

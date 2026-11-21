@@ -15,6 +15,7 @@ import com.diredifficulty.affix.AffixBudget;
 import com.diredifficulty.affix.AffixClass;
 import com.diredifficulty.affix.Affixes;
 import com.diredifficulty.config.ConfigManager;
+import com.diredifficulty.elite.Artefact;
 import com.diredifficulty.config.DireDifficultyConfig;
 import com.diredifficulty.elite.EliteData;
 import com.diredifficulty.elite.EliteGear;
@@ -144,7 +145,8 @@ public final class DireDifficultyCommands {
 							.then(spawnCommand(registries))
 							.then(auditCommand())
 							.then(namesCommand(registries))
-							.then(lootCommand()));
+							.then(lootCommand())
+							.then(artefactCommand()));
 
 			// The alias is a REDIRECT rather than a second tree: one set of nodes, so the two
 			// spellings cannot drift and the client is sent one copy of the arguments.
@@ -561,6 +563,39 @@ public final class DireDifficultyCommands {
 		source.sendSuccess(() -> Component.translatable(KEY + "names.done", count, rarity.name(),
 				family, unique, EliteNames.affixBankCount(), EliteNames.familyBankCount()), true);
 		return 1;
+	}
+
+	// --- /dire artefact <id> ---
+
+	private static LiteralArgumentBuilder<CommandSourceStack> artefactCommand() {
+		return Commands.literal("artefact")
+				.then(Commands.argument("id", StringArgumentType.word())
+						.suggests((context, builder) -> {
+							List<String> ids = new ArrayList<>();
+
+							for (final Artefact artefact : Artefact.values()) {
+								ids.add(artefact.id());
+							}
+
+							return SharedSuggestionProvider.suggest(ids, builder);
+						})
+						.executes(context -> {
+							CommandSourceStack source = context.getSource();
+							Artefact artefact = Artefact.byId(StringArgumentType.getString(context, "id"));
+
+							if (artefact == null) {
+								source.sendFailure(Component.literal("Unknown artefact"));
+								return 0;
+							}
+
+							ServerPlayer player = source.getPlayerOrException();
+							ItemStack stack = artefact.create(source.getLevel().registryAccess());
+
+							player.getInventory().placeItemBackInInventory(stack, net.minecraft.util.Prediction.SERVER_ONLY);
+
+							source.sendSuccess(() -> Component.literal("Gave ").append(stack.getHoverName()), true);
+							return 1;
+						}));
 	}
 
 	// --- /dire loot <rarity> <count> ---

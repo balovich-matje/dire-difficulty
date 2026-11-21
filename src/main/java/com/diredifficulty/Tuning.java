@@ -198,19 +198,19 @@ public final class Tuning {
 	// =================================================================================
 
 	/** Glow / name colour, RGB. Green, blue, purple, orange. */
-	public static final int[] RARITY_COLOUR = {0x55FF55, 0x55AAFF, 0xAA55FF, 0xFFAA00};
+	public static final int[] RARITY_COLOUR = {0x55FF55, 0x55AAFF, 0xAA55FF, 0xFFAA00, 0xFF3A3A};
 
 	/** Affix slot count — the hard ceiling on how many affixes may be drawn. */
-	public static final int[] RARITY_SLOTS = {1, 2, 3, 4};
+	public static final int[] RARITY_SLOTS = {1, 2, 3, 4, 5};
 
 	/** Affix point budget. Affixes cost 1-3; the roll stops when nothing affordable is left. */
-	public static final int[] RARITY_BUDGET = {2, 4, 6, 9};
+	public static final int[] RARITY_BUDGET = {2, 4, 6, 9, 12};
 
 	/** {@code MAX_HEALTH} multiplier, applied as one ADD_MULTIPLIED_BASE modifier. */
-	public static final double[] RARITY_MAX_HEALTH = {1.35, 1.80, 2.50, 3.40};
+	public static final double[] RARITY_MAX_HEALTH = {1.35, 1.80, 2.50, 3.40, 4.00};
 
 	/** {@code ATTACK_DAMAGE} multiplier. The ONLY flat outgoing multiplier in the whole mod. */
-	public static final double[] RARITY_DAMAGE = {1.10, 1.20, 1.32, 1.45};
+	public static final double[] RARITY_DAMAGE = {1.10, 1.20, 1.32, 1.45, 3.00};
 
 	/**
 	 * {@code SCALE} multiplier — model AND hitbox, through vanilla attribute sync alone.
@@ -220,10 +220,10 @@ public final class Tuning {
 	 * path around 2-high gaps instead of following you in. That reads as counterplay.
 	 * {@link #SCALE_ENABLED} is the escape hatch for a server that disagrees.
 	 */
-	public static final double[] RARITY_SCALE = {1.08, 1.15, 1.22, 1.30};
+	public static final double[] RARITY_SCALE = {1.08, 1.15, 1.22, 1.30, 1.45};
 
 	/** Dropped-XP multiplier. Deliberately a much smaller dial than the loot tier. */
-	public static final float[] RARITY_XP = {1.25F, 1.60F, 2.10F, 3.00F};
+	public static final float[] RARITY_XP = {1.25F, 1.60F, 2.10F, 3.00F, 6.00F};
 
 	/** Master switch for the scale modifier. Everything else about a rarity still applies. */
 	public static final boolean SCALE_ENABLED = true;
@@ -274,6 +274,30 @@ public final class Tuning {
 	}
 
 	// =================================================================================
+	// MYTHICAL — the fifth tier (2026-11-21). A force of nature, not a fight: never drawn
+	// by the normal roll (MAX_RARITY_TIER stops at Legendary), only by MythicalSpawns in
+	// specific places, only once a nearby player has killed the Ender Dragon or a Wither.
+	// =================================================================================
+
+	/** Max health floor after the rarity multiplier. The Warden has 500. */
+	public static final double MYTHICAL_MIN_HEALTH = 1000.0;
+
+	/** Chance per eligible natural spawn (Nether biomes, fortress, outpost). */
+	public static final double MYTHICAL_CHANCE_NATURAL = 0.004;
+
+	/** Chance per eligible structure-generated mob (bastion brutes, mansion illagers). */
+	public static final double MYTHICAL_CHANCE_STRUCTURE = 0.08;
+
+	/** Chance per vindicator/evoker of a raid's final (or bonus) wave. */
+	public static final double MYTHICAL_CHANCE_RAID = 0.25;
+
+	/** No second mythical within this many blocks of a living one. */
+	public static final double MYTHICAL_EXCLUSION_RADIUS = 128.0;
+
+	/** Per-dimension pause after a natural or raid mythical spawns, ticks (20 min). */
+	public static final int MYTHICAL_COOLDOWN_TICKS = 24_000;
+
+	// =================================================================================
 	// ELITE LOOT — docs/DESIGN.md §2.4
 	//
 	// EliteLoot holds the SHAPE, this holds the numbers. A whitelist, not a blacklist:
@@ -288,25 +312,25 @@ public final class Tuning {
 	 * material, rare only iron, epic iron or gold, legendary any of the four.
 	 * Columns: uncommon, rare, epic, legendary.
 	 */
-	public static final int[] LOOT_WEIGHT_IRON = {0, 1, 3, 4};
-	public static final int[] LOOT_WEIGHT_GOLD = {0, 0, 2, 3};
-	public static final int[] LOOT_WEIGHT_EMERALD = {0, 0, 0, 2};
-	public static final int[] LOOT_WEIGHT_DIAMOND = {0, 0, 0, 1};
+	public static final int[] LOOT_WEIGHT_IRON = {0, 1, 3, 4, 4};
+	public static final int[] LOOT_WEIGHT_GOLD = {0, 0, 2, 3, 3};
+	public static final int[] LOOT_WEIGHT_EMERALD = {0, 0, 0, 2, 2};
+	public static final int[] LOOT_WEIGHT_DIAMOND = {0, 0, 0, 1, 1};
 
-	public static final int[] LOOT_MATERIAL_MIN = {0, 1, 1, 1};
-	public static final int[] LOOT_MATERIAL_MAX = {0, 2, 2, 2};
+	public static final int[] LOOT_MATERIAL_MIN = {0, 1, 1, 1, 1};
+	public static final int[] LOOT_MATERIAL_MAX = {0, 2, 2, 2, 2};
 
 	/** Enchanted books: legendary only, one per kill. */
-	public static final int[] LOOT_BOOK_MIN = {0, 0, 0, 1};
-	public static final int[] LOOT_BOOK_MAX = {0, 0, 0, 1};
+	public static final int[] LOOT_BOOK_MIN = {0, 0, 0, 1, 1};
+	public static final int[] LOOT_BOOK_MAX = {0, 0, 0, 1, 1};
 
 	/**
 	 * Enchantment cost handed to vanilla's own book roller, per rarity. These are the
 	 * numbers an enchanting table would use at that level, so a T4 book reads as a
 	 * near-max table roll rather than as a modded item.
 	 */
-	public static final int[] LOOT_BOOK_COST_MIN = {5, 12, 20, 28};
-	public static final int[] LOOT_BOOK_COST_MAX = {12, 20, 28, 30};
+	public static final int[] LOOT_BOOK_COST_MIN = {5, 12, 20, 28, 30};
+	public static final int[] LOOT_BOOK_COST_MAX = {12, 20, 28, 30, 30};
 
 	// =================================================================================
 	// ELITE NAMES — the fantasy-name generator's shape dials.
@@ -350,6 +374,9 @@ public final class Tuning {
 	 */
 	public static final double NAME_EPITHET_CHANCE_LEGENDARY = 0.45;
 
+	/** Mythicals always carry an epithet. */
+	public static final double NAME_EPITHET_CHANCE_MYTHICAL = 1.0;
+
 	/** The same, at Epic. Uncommon and Rare never carry one. */
 	public static final double NAME_EPITHET_CHANCE_EPIC = 0.12;
 
@@ -372,10 +399,10 @@ public final class Tuning {
 	// =================================================================================
 
 	/** Chance a melee elite with an empty main hand is given a weapon, per rarity. */
-	public static final double[] GEAR_WEAPON_CHANCE = {0.55, 0.75, 0.90, 1.00};
+	public static final double[] GEAR_WEAPON_CHANCE = {0.55, 0.75, 0.90, 1.00, 1.00};
 
 	/** Chance EACH empty armour slot is filled, per rarity. Rolled independently per slot. */
-	public static final double[] GEAR_ARMOR_PIECE_CHANCE = {0.30, 0.50, 0.70, 0.90};
+	public static final double[] GEAR_ARMOR_PIECE_CHANCE = {0.30, 0.50, 0.70, 0.90, 1.00};
 
 	/**
 	 * Weapon material ladder per rarity, as a weighted draw: a repeated index is a heavier
@@ -386,6 +413,7 @@ public final class Tuning {
 		{3, 4, 4, 5},       // Rare:      stone / iron / iron / diamond
 		{4, 5, 5},          // Epic:      iron / diamond / diamond
 		{6},                // Legendary: netherite
+		{6},                // Mythical:  netherite
 	};
 
 	/** Armour material ladder per rarity. Netherite is possible at Legendary, never certain. */
@@ -394,24 +422,25 @@ public final class Tuning {
 		{2, 3, 4, 4},       // Rare:      gold / chainmail / iron / iron
 		{4, 4, 5},          // Epic:      iron / iron / diamond
 		{5, 5, 6},          // Legendary: diamond / diamond / netherite
+		{6},                // Mythical:  netherite
 	};
 
 	/** Chance a drawn weapon is an axe rather than a sword. Same material either way. */
 	public static final double GEAR_AXE_CHANCE = 0.30;
 
 	/** Chance the weapon is enchanted, per rarity. Legendary always is. */
-	public static final double[] GEAR_WEAPON_ENCHANT_CHANCE = {0.0, 0.15, 0.50, 1.00};
+	public static final double[] GEAR_WEAPON_ENCHANT_CHANCE = {0.0, 0.15, 0.50, 1.00, 1.00};
 
 	/** Chance an armour piece is enchanted, per rarity. Deliberately far below the weapon's. */
-	public static final double[] GEAR_ARMOR_ENCHANT_CHANCE = {0.0, 0.05, 0.20, 0.45};
+	public static final double[] GEAR_ARMOR_ENCHANT_CHANCE = {0.0, 0.05, 0.20, 0.45, 1.00};
 
 	/**
 	 * Enchanting-table cost handed to vanilla's own roller, per rarity — the numbers a table
 	 * would use at that level, so a Legendary's weapon reads as a near-max table roll.
 	 */
-	public static final int[] GEAR_ENCHANT_COST_MIN = {1, 5, 14, 22};
+	public static final int[] GEAR_ENCHANT_COST_MIN = {1, 5, 14, 22, 30};
 
-	public static final int[] GEAR_ENCHANT_COST_MAX = {5, 14, 24, 30};
+	public static final int[] GEAR_ENCHANT_COST_MAX = {5, 14, 24, 30, 30};
 
 	/**
 	 * Drop chance for gear this mod equipped, per rarity. Vanilla's own default is
@@ -419,7 +448,7 @@ public final class Tuning {
 	 * TAPERS as the gear gets better, because the same 8.5% on an enchanted netherite sword is
 	 * a different economy from 8.5% on an iron one.
 	 */
-	public static final double[] GEAR_DROP_CHANCE = {0.085, 0.075, 0.060, 0.050};
+	public static final double[] GEAR_DROP_CHANCE = {0.085, 0.075, 0.060, 0.050, 0.050};
 
 	/**
 	 * Hard ceiling on any drop chance this mod writes.
@@ -615,16 +644,16 @@ public final class Tuning {
 	//   3. a soft additive pool projected onto the tops of the blocks around its feet.
 
 	/** Block light 0..15 the elite itself is drawn with, per rarity (never darker than real light). */
-	public static final int[] AURA_MOB_LIGHT = {10, 12, 14, 15};
+	public static final int[] AURA_MOB_LIGHT = {10, 12, 14, 15, 15};
 
 	/** Centre alpha 0..255 of the aura disc, per rarity. Additive, so this is brightness. */
-	public static final int[] AURA_ALPHA = {0x70, 0x90, 0xB8, 0xE0};
+	public static final int[] AURA_ALPHA = {0x70, 0x90, 0xB8, 0xE0, 0xFF};
 
 	/**
 	 * Aura disc radius as a multiple of the mob's own half-height plus
 	 * {@link #AURA_RADIUS_PAD}, per rarity.
 	 */
-	public static final double[] AURA_RADIUS_SCALE = {1.35, 1.5, 1.7, 1.95};
+	public static final double[] AURA_RADIUS_SCALE = {1.35, 1.5, 1.7, 1.95, 2.3};
 
 	/** Blocks added to the half-height before scaling, so small mobs still get a visible aura. */
 	public static final double AURA_RADIUS_PAD = 0.35;
@@ -648,19 +677,19 @@ public final class Tuning {
 	 * pitch slower too, so this is "deeper and slower" in one number. The client clamps the
 	 * final pitch at 0.5, which the creeper's fuse hiss already sits on.
 	 */
-	public static final float[] ELITE_VOICE_PITCH = {0.85F, 0.75F, 0.67F, 0.6F};
+	public static final float[] ELITE_VOICE_PITCH = {0.85F, 0.75F, 0.67F, 0.6F, 0.5F};
 
 	/**
 	 * Volume multiplier on every sound an elite makes, per rarity. Above 1.0 Minecraft does
 	 * not get louder up close; it carries farther (hearing range is 16 blocks times volume).
 	 */
-	public static final float[] ELITE_VOICE_VOLUME = {1.25F, 1.5F, 2.0F, 2.5F};
+	public static final float[] ELITE_VOICE_VOLUME = {1.25F, 1.5F, 2.0F, 2.5F, 3.5F};
 
 	/** Ground light pool radius in blocks, per rarity. */
-	public static final double[] AURA_POOL_RADIUS = {2.0, 2.5, 3.0, 3.75};
+	public static final double[] AURA_POOL_RADIUS = {2.0, 2.5, 3.0, 3.75, 4.5};
 
 	/** Centre alpha 0..255 of the ground pool, per rarity. */
-	public static final int[] AURA_POOL_ALPHA = {0x48, 0x60, 0x7C, 0x9C};
+	public static final int[] AURA_POOL_ALPHA = {0x48, 0x60, 0x7C, 0x9C, 0xC0};
 
 	/** Elites farther than this from the camera skip the ground pool (block lookups per frame). */
 	public static final double AURA_POOL_MAX_DISTANCE = 48.0;

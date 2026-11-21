@@ -255,12 +255,14 @@ public final class ProgressionScore implements ScoreSource {
 
 		this.cache.keySet().retainAll(present);
 		this.highestOnline = highest;
+		com.diredifficulty.elite.MythicalSpawns.refresh(server);
 	}
 
 	public void clear() {
 		this.cache.clear();
 		this.nextRefreshTick = 0;
 		this.highestOnline = 0.0;
+		com.diredifficulty.elite.MythicalSpawns.clear();
 		this.cachedFor = null;
 		this.cachedEligible = List.of();
 	}
