@@ -16,6 +16,35 @@ Once you have full enchanted diamond or netherite gear, nothing in Minecraft can
 
 <p align="left"><img src="artefacts.gif" alt="Artefacts" width="350"></p>
 
+<details>
+<summary>Every artefact (spoilers)</summary>
+
+- **Dawnbrand** (golden sword) — Smite X, Breach IV, Fire Aspect II, Unbreaking IV.
+- **The Last Wall** (shield) — Unbreaking IV; +4 armor and +2 armor toughness while in your off hand.
+- **Skullcracker** (iron axe) — Sharpness X.
+- **Kingsfall** (diamond sword) — Sharpness VI, Breach IV.
+- **Whisperstring** (bow) — Power VI, Punch III, Infinity.
+- **Grudgebearer** (crossbow) — Multishot, Piercing V, Quick Charge IV.
+- **Bastion Breaker** (golden axe) — Sharpness V, Efficiency VII, Unbreaking V; lasts as long as a netherite axe.
+- **Gravetaker** (stone sword) — Sharpness V, Looting IV.
+- **Crown of the Unbowed** (netherite helmet) — Protection V, Respiration IV, Aqua Affinity.
+- **Ironheart** (iron chestplate) — Protection VI, Thorns IV.
+- **Stillwater Greaves** (diamond leggings) — Swift Sneak V, Blast Protection VI.
+- **Cloudwalkers** (diamond boots) — Feather Falling VI, Soul Speed IV.
+- **Galeskippers** (leather boots) — 40% faster movement.
+- **Hillstriders** (iron boots) — walk up full blocks without jumping.
+- **Springheel Greaves** (chainmail leggings) — jump higher and take less fall damage.
+- **Featherweight Mantle** (leather chestplate) — 30% lower gravity and less fall damage.
+- **Longreach** (iron sword) — hit enemies from 1 block farther away.
+- **Heartwood Plate** (leather chestplate) — +4 max hearts.
+- **Titan's Crown** (golden helmet) — makes you 15% bigger, with more reach.
+- **Quarrier's Fist** (diamond pickaxe) — 50% faster mining, and much faster underwater.
+- **Bloodletter** (netherite sword) — heals you for 20% of the melee damage you deal.
+- **Second Wind** (chainmail chestplate) — survives one killing blow every 10 minutes.
+- **Nighteye Helm** (iron helmet) — night vision while worn.
+
+</details>
+
 - **Loot.** Elites drop a little extra: a few crafting material such as iron ingots, gold ingots, diamonds. Legendary and Mythical drop an enchanted book. 
 
 ## Settings
