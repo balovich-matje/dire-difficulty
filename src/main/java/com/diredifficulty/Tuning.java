@@ -688,6 +688,12 @@ public final class Tuning {
 	/** Blocks added to the half-height before scaling, so small mobs still get a visible aura. */
 	public static final double AURA_RADIUS_PAD = 0.35;
 
+	/**
+	 * Height above the feet, in blocks, over which the aura disc fades in. At feet level it
+	 * is fully transparent, so the flat disc never draws a hard line where it meets the floor.
+	 */
+	public static final double AURA_GROUND_FADE = 0.7;
+
 	/** Ground light pool radius in blocks, per rarity. */
 	public static final double[] AURA_POOL_RADIUS = {2.0, 2.5, 3.0, 3.75};
 

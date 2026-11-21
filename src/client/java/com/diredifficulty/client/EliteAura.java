@@ -66,10 +66,9 @@ public final class EliteAura {
 	/** Block tops lit by the pool, as (x, y, z) triples relative to the entity origin. */
 	public static final RenderStateDataKey<float[]> POOL_KEY = RenderStateDataKey.create();
 
-	private static final int SEGMENTS = 20;
-	/** Radial stops of the falloff (fraction of radius) and the alpha fraction at each. */
-	private static final float[] RING_R = {0.0F, 0.22F, 0.5F, 1.0F};
-	private static final float[] RING_A = {1.0F, 0.72F, 0.28F, 0.0F};
+	private static final int SEGMENTS = 24;
+	/** Ring count of the disc; enough that per-vertex fades interpolate smoothly. */
+	private static final int RINGS = 8;
 
 	private EliteAura() {
 	}
@@ -175,31 +174,40 @@ public final class EliteAura {
 		Vector3f up = camera.orientation.transform(new Vector3f(0.0F, 1.0F, 0.0F));
 
 		collector.submitCustomGeometry(poseStack, TYPE, (pose, buffer) -> {
-			for (int ring = 0; ring < RING_R.length - 1; ring++) {
-				float rIn = RING_R[ring] * radius;
-				float rOut = RING_R[ring + 1] * radius;
-				int cIn = ARGB.color(Math.round(alpha * RING_A[ring]), rgb);
-				int cOut = ARGB.color(Math.round(alpha * RING_A[ring + 1]), rgb);
+			for (int ring = 0; ring < RINGS; ring++) {
+				float tIn = (float) ring / RINGS;
+				float tOut = (float) (ring + 1) / RINGS;
 
 				for (int i = 0; i < SEGMENTS; i++) {
 					double a0 = i * (Math.PI * 2.0 / SEGMENTS);
 					double a1 = (i + 1) * (Math.PI * 2.0 / SEGMENTS);
-					discVertex(buffer, pose, cx, cy, cz, right, up, a0, rIn, cIn);
-					discVertex(buffer, pose, cx, cy, cz, right, up, a0, rOut, cOut);
-					discVertex(buffer, pose, cx, cy, cz, right, up, a1, rOut, cOut);
-					discVertex(buffer, pose, cx, cy, cz, right, up, a1, rIn, cIn);
+					discVertex(buffer, pose, cx, cy, cz, right, up, a0, tIn, radius, rgb, alpha);
+					discVertex(buffer, pose, cx, cy, cz, right, up, a0, tOut, radius, rgb, alpha);
+					discVertex(buffer, pose, cx, cy, cz, right, up, a1, tOut, radius, rgb, alpha);
+					discVertex(buffer, pose, cx, cy, cz, right, up, a1, tIn, radius, rgb, alpha);
 				}
 			}
 		});
 	}
 
+	/**
+	 * One disc vertex at fraction {@code t} of the radius. Alpha falls off radially and also
+	 * fades out as the vertex nears the mob's feet level: the disc is flat and would otherwise
+	 * cut a hard line where it passes into the ground. Below the feet it is fully transparent;
+	 * the ground pool carries the light there instead.
+	 */
 	private static void discVertex(final VertexConsumer buffer, final PoseStack.Pose pose,
 			final float cx, final float cy, final float cz, final Vector3f right, final Vector3f up,
-			final double angle, final float r, final int colour) {
-		float u = (float) Math.cos(angle) * r;
-		float v = (float) Math.sin(angle) * r;
-		buffer.addVertex(pose, cx + right.x * u + up.x * v, cy + right.y * u + up.y * v,
-				cz + right.z * u + up.z * v).setColor(colour);
+			final double angle, final float t, final float radius, final int rgb, final int alpha) {
+		float u = (float) Math.cos(angle) * t * radius;
+		float v = (float) Math.sin(angle) * t * radius;
+		float x = cx + right.x * u + up.x * v;
+		float y = cy + right.y * u + up.y * v;
+		float z = cz + right.z * u + up.z * v;
+		float radial = (float) Math.pow(1.0F - t, 1.6);
+		float g = Mth.clamp(y / (float) Tuning.AURA_GROUND_FADE, 0.0F, 1.0F);
+		float ground = g * g * (3.0F - 2.0F * g);
+		buffer.addVertex(pose, x, y, z).setColor(ARGB.color(Math.round(alpha * radial * ground), rgb));
 	}
 
 	private static void submitPool(final PoseStack poseStack, final SubmitNodeCollector collector,
