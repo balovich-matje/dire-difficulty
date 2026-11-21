@@ -169,7 +169,9 @@ public final class MythicalSpawns {
 	 * full knockback resistance.
 	 */
 	static void applyMythical(final ServerLevel level, final Mob mob, final RandomSource random) {
-		equipArtefact(level, mob, random);
+		if (!Rufus.is(mob)) {
+			equipArtefact(level, mob, random);
+		}
 
 		double missing = Tuning.MYTHICAL_MIN_HEALTH - mob.getMaxHealth();
 

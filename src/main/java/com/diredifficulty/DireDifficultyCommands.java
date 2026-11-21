@@ -146,7 +146,13 @@ public final class DireDifficultyCommands {
 							.then(auditCommand())
 							.then(namesCommand(registries))
 							.then(lootCommand())
-							.then(artefactCommand()));
+							.then(artefactCommand())
+							.then(Commands.literal("rufus").executes(context -> {
+								CommandSourceStack source = context.getSource();
+								com.diredifficulty.elite.Rufus.spawnAt(source.getLevel(), BlockPos.containing(source.getPosition()));
+								source.sendSuccess(() -> Component.literal("Rufus has arrived."), true);
+								return 1;
+							})));
 
 			// The alias is a REDIRECT rather than a second tree: one set of nodes, so the two
 			// spellings cannot drift and the client is sent one copy of the arguments.

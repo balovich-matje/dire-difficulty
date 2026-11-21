@@ -8,6 +8,7 @@
 		"balovich-matje"
 	],
 	"license": "MIT",
+	"icon": "assets/dire_difficulty/icon.png",
 	"environment": "*",
 	"entrypoints": {
 		"main": [

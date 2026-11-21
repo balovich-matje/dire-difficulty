@@ -3,6 +3,7 @@
 	"package": "com.diredifficulty.mixin",
 	"compatibilityLevel": "${java}",
 	"mixins": [
+		"accessor.MobGoalsAccessor",
 		"command.ServerPlayerGameModeMixin",
 		"elite.EntitySoundMixin",
 		"elite.LivingEntityLootMixin",

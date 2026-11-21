@@ -68,6 +68,10 @@ public final class EliteRoller {
 	 */
 	public static void onFinalizeSpawn(final Mob mob, final ServerLevelAccessor accessor,
 			final EntitySpawnReason reason) {
+		if (Rufus.tryCreate(mob, accessor.getLevel(), reason)) {
+			return;
+		}
+
 		if (!ConfigManager.get().spawnElites || !isEligible(mob)) {
 			return;
 		}

@@ -307,6 +307,18 @@ public final class Tuning {
 	/** Pause after each pick, ticks (60 s). */
 	public static final int DOMINANCE_COOLDOWN_TICKS = 1200;
 
+	// ---- Rufus the Bull (easter egg): a rare warm-biome cow becomes a friendly Mythical giant.
+
+	/** Chance per naturally spawned adult cow in a warm-variant biome. */
+	public static final double RUFUS_CHANCE = 0.003;
+	/** Extra size on top of the Mythical scale. */
+	public static final double RUFUS_EXTRA_SCALE = 0.35;
+	/** Charge hit before the Mythical damage multiplier (x3 → 24, twelve hearts). */
+	public static final float RUFUS_DAMAGE = 8.0F;
+	public static final double RUFUS_KNOCKBACK = 3.0;
+	public static final double RUFUS_LIFT = 0.45;
+	public static final double RUFUS_CHARGE_SPEED = 1.8;
+
 	/** Bloodletter: share of melee damage dealt returned as health. */
 	public static final float ARTEFACT_LIFESTEAL = 0.2F;
 

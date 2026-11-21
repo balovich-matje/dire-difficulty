@@ -64,6 +64,7 @@ public class DireDifficulty implements ModInitializer {
 		// may already be an elite.
 		EliteSystems.register();
 		com.diredifficulty.elite.ArtefactEffects.register();
+		com.diredifficulty.elite.Rufus.register();
 		TheHunt.register();
 
 		// Last, and it has to be: the command tree names the affix catalogue in its suggestion

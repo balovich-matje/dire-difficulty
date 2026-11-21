@@ -1608,3 +1608,10 @@ Elites must never make mining pointless. One material per kill, by weight from t
 - Footsteps: own volume column (Mythical x8 → ~19 blocks) + ravager-step layer at pitch 0.55 from Epic up (Minecraft has no EQ). User: "nailed it".
 - `/dire` tab-completion: command tree re-sent on game-mode change (`ServerPlayerGameModeMixin`); the creative-only gate made suggestions depend on the mode at join.
 - Icons: mob-head drafts, `docs/art/make_icons.py` (textures read from the local client jar, output gitignored).
+
+### 13.v Rufus the Bull + icon (2026-11-21)
+
+- Easter egg, nod to the farm channel's giant bull. Natural/chunk-gen adult cow in a `spawns_warm_variant_farm_animals` biome, chance 0.003, no dragon gate (respects spawnElites). Becomes Mythical (no affixes, no artefact), warm variant, +35% extra scale, fixed name "Rufus the Bull", persistent, entity tag `dire_difficulty_rufus`.
+- AI (re-installed on every ENTITY_LOAD, goals aren't saved): PanicGoal removed; Charge (MeleeAttackGoal, speed x1.8) with its own hit because cows have no ATTACK_DAMAGE attribute — 8 base (x3 Mythical funnel = 24), knockback 3.0 + lift 0.45; HurtByTargetGoal (charges whoever hits him); NearestAttackableTargetGoal on every `Enemy`.
+- `/dire rufus` spawns him. AI verified in-game only (headless servers stop ticking mobs with no player).
+- Mod icon: draft E (wither skeleton head, red aura) → `assets/dire_difficulty/icon.png`.
