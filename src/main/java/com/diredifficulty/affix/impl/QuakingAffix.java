@@ -106,7 +106,7 @@ public final class QuakingAffix implements Affix {
 			if (length > 1.0E-4) {
 				victim.push(dx / length * Tuning.QUAKING_KNOCKBACK, 0.35,
 						dz / length * Tuning.QUAKING_KNOCKBACK);
-				victim.syncVelocity = true;
+				victim.hurtMarked = true;
 			}
 		}
 

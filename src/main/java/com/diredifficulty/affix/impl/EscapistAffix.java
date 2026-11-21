@@ -96,7 +96,7 @@ public final class EscapistAffix implements Affix {
 			double z = mob.getZ() + Math.sin(angle) * distance;
 			double y = mob.getY() + (random.nextDouble() - 0.5) * 8.0;
 
-			if (mob.randomTeleport(x, y, z, false, state -> false)) {
+			if (mob.randomTeleport(x, y, z, false/*? if >=26.3 {*//*, state -> false*//*?}*/)) {
 				level.sendParticles(ParticleTypes.PORTAL, mob.getX(), mob.getY() + mob.getBbHeight() * 0.5,
 						mob.getZ(), 32, 0.5, 0.8, 0.5, 0.1);
 				level.playSound(null, mob.getX(), mob.getY(), mob.getZ(), SoundEvents.ENDERMAN_TELEPORT,

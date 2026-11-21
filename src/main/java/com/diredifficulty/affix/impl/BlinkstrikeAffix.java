@@ -84,7 +84,7 @@ public final class BlinkstrikeAffix implements Affix {
 		double x = target.getX() - look.x * Tuning.BLINKSTRIKE_BEHIND_OFFSET;
 		double z = target.getZ() - look.z * Tuning.BLINKSTRIKE_BEHIND_OFFSET;
 
-		if (!mob.randomTeleport(x, target.getY(), z, false, state -> false)) {
+		if (!mob.randomTeleport(x, target.getY(), z, false/*? if >=26.3 {*//*, state -> false*//*?}*/)) {
 			return;
 		}
 

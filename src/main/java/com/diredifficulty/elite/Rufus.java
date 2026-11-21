@@ -132,7 +132,7 @@ public final class Rufus {
 			target.setDeltaMovement(target.getDeltaMovement().add(0.0, Tuning.RUFUS_LIFT, 0.0));
 
 			if (target instanceof Player) {
-				target.syncVelocity = true;
+				target.hurtMarked = true;
 			}
 
 			level.playSound(null, this.bull.getX(), this.bull.getY(), this.bull.getZ(), SoundEvents.RAVAGER_ATTACK,

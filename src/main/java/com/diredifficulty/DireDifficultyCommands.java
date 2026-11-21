@@ -643,7 +643,7 @@ public final class DireDifficultyCommands {
 							ServerPlayer player = source.getPlayerOrException();
 							ItemStack stack = artefact.create(source.getLevel().registryAccess());
 
-							player.getInventory().placeItemBackInInventory(stack, net.minecraft.util.Prediction.SERVER_ONLY);
+							player.getInventory().placeItemBackInInventory(stack);
 
 							source.sendSuccess(() -> Component.literal("Gave ").append(stack.getHoverName()), true);
 							return 1;

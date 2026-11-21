@@ -6,11 +6,22 @@ import com.diredifficulty.elite.EliteData;
 import com.diredifficulty.elite.Rarity;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.mojang.renderpearl.api.pipeline.BlendFunction;
+//? if >=26.3 {
+/*import com.mojang.renderpearl.api.pipeline.BlendFunction;
 import com.mojang.renderpearl.api.pipeline.ColorTargetState;
 import com.mojang.renderpearl.api.pipeline.CompareOp;
 import com.mojang.renderpearl.api.pipeline.DepthStencilState;
 import com.mojang.renderpearl.api.pipeline.RenderPipeline;
+import net.minecraft.client.renderer.oit.OitPipelineSet;
+*///?} else {
+import com.mojang.blaze3d.PrimitiveTopology;
+import com.mojang.blaze3d.pipeline.BlendFunction;
+import com.mojang.blaze3d.pipeline.ColorTargetState;
+import com.mojang.blaze3d.pipeline.DepthStencilState;
+import com.mojang.blaze3d.pipeline.RenderPipeline;
+import com.mojang.blaze3d.platform.CompareOp;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+//?}
 
 import net.fabricmc.fabric.api.client.rendering.v1.FabricRenderState;
 import net.fabricmc.fabric.api.client.rendering.v1.RenderStateDataKey;
@@ -18,7 +29,6 @@ import net.fabricmc.fabric.api.client.rendering.v1.RenderStateDataKey;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.entity.state.LivingEntityRenderState;
-import net.minecraft.client.renderer.oit.OitPipelineSet;
 import net.minecraft.client.renderer.rendertype.RenderSetup;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.client.renderer.state.level.CameraRenderState;
@@ -50,7 +60,8 @@ import org.joml.Vector3f;
  * transparency mode.
  */
 public final class EliteAura {
-	private static final RenderPipeline PIPELINE = RenderPipelines.register(
+	//? if >=26.3 {
+	/*private static final RenderPipeline PIPELINE = RenderPipelines.register(
 			RenderPipeline.builder(RenderPipelines.LIGHTNING_SNIPPET)
 					.withLocation(Identifier.fromNamespaceAndPath(DireDifficulty.MOD_ID, "pipeline/elite_aura"))
 					.withColorTargetState(new ColorTargetState(BlendFunction.LIGHTNING))
@@ -64,6 +75,23 @@ public final class EliteAura {
 
 	private static final RenderType TYPE = RenderType.create("dire_difficulty_elite_aura",
 			RenderSetup.builder(PIPELINE).setOitPipelines(OIT).sortOnUpload().createRenderSetup());
+	*///?} else {
+	// 26.2 has no lightning snippet and no OIT: the same pipeline spelled out from vanilla's
+	// LIGHTNING definition, with depth write off.
+	private static final RenderPipeline PIPELINE = RenderPipelines.register(
+			RenderPipeline.builder(RenderPipelines.MATRICES_FOG_SNIPPET)
+					.withLocation(Identifier.fromNamespaceAndPath(DireDifficulty.MOD_ID, "pipeline/elite_aura"))
+					.withVertexShader("core/rendertype_lightning")
+					.withFragmentShader("core/rendertype_lightning")
+					.withColorTargetState(new ColorTargetState(BlendFunction.LIGHTNING))
+					.withVertexBinding(0, DefaultVertexFormat.POSITION_COLOR)
+					.withPrimitiveTopology(PrimitiveTopology.QUADS)
+					.withDepthStencilState(new DepthStencilState(CompareOp.GREATER_THAN_OR_EQUAL, false))
+					.build());
+
+	private static final RenderType TYPE = RenderType.create("dire_difficulty_elite_aura",
+			RenderSetup.builder(PIPELINE).sortOnUpload().createRenderSetup());
+	//?}
 
 	/** Block tops lit by the pool, as (x, y, z) triples relative to the entity origin. */
 	public static final RenderStateDataKey<float[]> POOL_KEY = RenderStateDataKey.create();

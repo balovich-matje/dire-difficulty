@@ -1616,3 +1616,10 @@ Elites must never make mining pointless. One material per kill, by weight from t
 - Spotting range x2 (FOLLOW_RANGE +100%, 32 blocks), user request after in-game pass (knockback + speed confirmed right).
 - `/dire rufus` spawns him. AI verified in-game only (headless servers stop ticking mobs with no player).
 - Mod icon: draft E (wither skeleton head, red aura) → `assets/dire_difficulty/icon.png`.
+
+### 13.u Stonecutter workspace, 26.3 + 26.2 (2026-11-21)
+
+- Converted to the sibling repos' shape: `settings.gradle.kts` (nodes `26.3-fabric`, `26.2-fabric`), `stonecutter.gradle.kts` (active + VCS point `26.2-fabric`), `stonecutter.properties.toml` (all pins), `build.fabric.gradle.kts` (one node script + mod-publish-plugin 2.1.1, dry run unless `-PpublishLive=true`). `src/` on disk is in 26.2 form.
+- 26.3 deltas: replacements `.hurtMarked`→`.syncVelocity`, `placeItemBackInInventory(stack)`→`+ Prediction.SERVER_ONLY`; inline `//?` for `randomTeleport`'s 26.3 block predicate; `EliteAura` pipeline block (26.3: renderpearl + LIGHTNING_SNIPPET + OIT set; 26.2: blaze3d, vanilla LIGHTNING spelled out from MATRICES_FOG_SNIPPET, no OIT).
+- `mod.version` 1.0.0 (first public release). Modrinth project id goes into toml `mod.modrinth_id` once the project exists.
+- Both jars build from one `./gradlew buildAndCollect`; both boot a headless server clean and run `/dire spawn … mythical`, `/dire rufus`, `/dire loot`. Client aura on 26.2 unverified in-game.
