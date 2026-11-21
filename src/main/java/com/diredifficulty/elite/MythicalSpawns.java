@@ -40,7 +40,8 @@ import net.minecraft.world.phys.AABB;
  *
  * <ul>
  *   <li>Natural spawns: zombified piglin in Nether Wastes, piglin in Crimson Forest, skeleton in
- *       Soul Sand Valley, wither skeleton inside a Nether Fortress, pillager at an outpost.</li>
+ *       Soul Sand Valley, wither skeleton inside a Nether Fortress, pillager at an outpost,
+ *       enderman anywhere in the Overworld.</li>
  *   <li>Structure generation: piglin brute (bastions), vindicator / evoker (woodland mansions).</li>
  *   <li>Raids: vindicator / evoker of the final or bonus wave.</li>
  * </ul>
@@ -229,6 +230,10 @@ public final class MythicalSpawns {
 		if (type == EntityTypes.WITHER_SKELETON) {
 			return level.structureManager().getStructureWithPieceAt(pos,
 					holder -> holder.is(BuiltinStructures.FORTRESS)).isValid();
+		}
+
+		if (type == EntityTypes.ENDERMAN) {
+			return level.dimension() == Level.OVERWORLD;
 		}
 
 		if (type == EntityTypes.PILLAGER) {

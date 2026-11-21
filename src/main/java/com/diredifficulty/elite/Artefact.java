@@ -51,42 +51,72 @@ import net.minecraft.core.RegistryAccess;
  * mod can recognise one later without reading its (renamable) name.
  */
 public enum Artefact {
-	DAWNBRAND(Items.GOLDEN_SWORD, EquipmentSlot.MAINHAND, "Dawnbrand", "Bane of the Restless",
+	DAWNBRAND(Items.GOLDEN_SWORD, EquipmentSlot.MAINHAND, "Dawnbrand",
 			s -> s.enchant(Enchantments.FIRE_ASPECT, 2).enchant(Enchantments.BREACH, 4)
 					.enchant(Enchantments.UNBREAKING, 4).enchant(Enchantments.SMITE, 10)),
-	THE_LAST_WALL(Items.SHIELD, EquipmentSlot.OFFHAND, "The Last Wall", "Nothing passed. Nothing ever will.",
+	THE_LAST_WALL(Items.SHIELD, EquipmentSlot.OFFHAND, "The Last Wall",
 			s -> s.enchant(Enchantments.UNBREAKING, 4)
 					.attribute(Attributes.ARMOR, 4.0, AttributeModifier.Operation.ADD_VALUE, EquipmentSlotGroup.OFFHAND)
 					.attribute(Attributes.ARMOR_TOUGHNESS, 2.0, AttributeModifier.Operation.ADD_VALUE, EquipmentSlotGroup.OFFHAND)
 					.banner(DyeColor.LIGHT_GRAY, BannerPatterns.BRICKS, DyeColor.GRAY, BannerPatterns.CURLY_BORDER, DyeColor.BLACK)),
-	SKULLCRACKER(Items.IRON_AXE, EquipmentSlot.MAINHAND, "Skullcracker", "One edge. One purpose.",
+	SKULLCRACKER(Items.IRON_AXE, EquipmentSlot.MAINHAND, "Skullcracker",
 			s -> s.enchant(Enchantments.SHARPNESS, 10)),
-	KINGSFALL(Items.DIAMOND_SWORD, EquipmentSlot.MAINHAND, "Kingsfall", "No crown is thick enough.",
+	KINGSFALL(Items.DIAMOND_SWORD, EquipmentSlot.MAINHAND, "Kingsfall",
 			s -> s.enchant(Enchantments.SHARPNESS, 6).enchant(Enchantments.BREACH, 4)),
-	WHISPERSTRING(Items.BOW, EquipmentSlot.MAINHAND, "Whisperstring", "You will not hear it.",
+	WHISPERSTRING(Items.BOW, EquipmentSlot.MAINHAND, "Whisperstring",
 			s -> s.enchant(Enchantments.POWER, 6).enchant(Enchantments.PUNCH, 3).enchant(Enchantments.INFINITY, 1)),
-	GRUDGEBEARER(Items.CROSSBOW, EquipmentSlot.MAINHAND, "Grudgebearer", "It remembers every village.",
+	GRUDGEBEARER(Items.CROSSBOW, EquipmentSlot.MAINHAND, "Grudgebearer",
 			s -> s.enchant(Enchantments.MULTISHOT, 1).enchant(Enchantments.PIERCING, 5)
 					.enchant(Enchantments.QUICK_CHARGE, 4)),
-	BASTION_BREAKER(Items.GOLDEN_AXE, EquipmentSlot.MAINHAND, "Bastion Breaker", "Gold, bent to ruin.",
+	BASTION_BREAKER(Items.GOLDEN_AXE, EquipmentSlot.MAINHAND, "Bastion Breaker",
 			s -> s.enchant(Enchantments.EFFICIENCY, 7).enchant(Enchantments.SHARPNESS, 5)
 					.enchant(Enchantments.UNBREAKING, 5).durability(Items.NETHERITE_AXE)),
-	GRAVETAKER(Items.STONE_SWORD, EquipmentSlot.MAINHAND, "Gravetaker", "What falls, it keeps.",
+	GRAVETAKER(Items.STONE_SWORD, EquipmentSlot.MAINHAND, "Gravetaker",
 			s -> s.enchant(Enchantments.SHARPNESS, 5).enchant(Enchantments.LOOTING, 4)),
 	CROWN_OF_THE_UNBOWED(Items.NETHERITE_HELMET, EquipmentSlot.HEAD, "Crown of the Unbowed",
-			"Worn by those who never knelt.",
 			s -> s.enchant(Enchantments.PROTECTION, 5).enchant(Enchantments.RESPIRATION, 4)
 					.enchant(Enchantments.AQUA_AFFINITY, 1)),
-	IRONHEART(Items.IRON_CHESTPLATE, EquipmentSlot.CHEST, "Ironheart", "Strike it and bleed.",
+	IRONHEART(Items.IRON_CHESTPLATE, EquipmentSlot.CHEST, "Ironheart",
 			s -> s.enchant(Enchantments.PROTECTION, 6).enchant(Enchantments.THORNS, 4)),
 	STILLWATER_GREAVES(Items.DIAMOND_LEGGINGS, EquipmentSlot.LEGS, "Stillwater Greaves",
-			"Silent, and unshaken by fire.",
 			s -> s.enchant(Enchantments.SWIFT_SNEAK, 5).enchant(Enchantments.BLAST_PROTECTION, 6)),
-	CLOUDWALKERS(Items.DIAMOND_BOOTS, EquipmentSlot.FEET, "Cloudwalkers", "The ground forgets you.",
+	CLOUDWALKERS(Items.DIAMOND_BOOTS, EquipmentSlot.FEET, "Cloudwalkers",
 			s -> s.enchant(Enchantments.FEATHER_FALLING, 6).enchant(Enchantments.SOUL_SPEED, 4)),
-	GALESKIPPERS(Items.LEATHER_BOOTS, EquipmentSlot.FEET, "Galeskippers", "Borrowed from the wind.",
+	GALESKIPPERS(Items.LEATHER_BOOTS, EquipmentSlot.FEET, "Galeskippers",
 			s -> s.attribute(Attributes.MOVEMENT_SPEED, 0.4, AttributeModifier.Operation.ADD_MULTIPLIED_BASE,
-					EquipmentSlotGroup.FEET).dye(0xBFE3F2));
+					EquipmentSlotGroup.FEET).dye(0xBFE3F2)),
+
+	// ---- Second set (2026-11-21): bonuses beyond enchantments. Attribute ones show on the
+	// tooltip by themselves; the last three are coded effects, see ArtefactEffects.
+
+	HILLSTRIDERS(Items.IRON_BOOTS, EquipmentSlot.FEET, "Hillstriders",
+			s -> s.attribute(Attributes.STEP_HEIGHT, 0.5, AttributeModifier.Operation.ADD_VALUE, EquipmentSlotGroup.FEET)),
+	SPRINGHEEL_GREAVES(Items.CHAINMAIL_LEGGINGS, EquipmentSlot.LEGS, "Springheel Greaves",
+			s -> s.attribute(Attributes.JUMP_STRENGTH, 0.1, AttributeModifier.Operation.ADD_VALUE, EquipmentSlotGroup.LEGS)
+					.attribute(Attributes.SAFE_FALL_DISTANCE, 4.0, AttributeModifier.Operation.ADD_VALUE, EquipmentSlotGroup.LEGS)),
+	FEATHERWEIGHT_MANTLE(Items.LEATHER_CHESTPLATE, EquipmentSlot.CHEST, "Featherweight Mantle",
+			s -> s.attribute(Attributes.GRAVITY, -0.3, AttributeModifier.Operation.ADD_MULTIPLIED_BASE, EquipmentSlotGroup.CHEST)
+					.attribute(Attributes.SAFE_FALL_DISTANCE, 3.0, AttributeModifier.Operation.ADD_VALUE, EquipmentSlotGroup.CHEST)
+					.dye(0xE6E6E0)),
+	LONGREACH(Items.IRON_SWORD, EquipmentSlot.MAINHAND, "Longreach",
+			s -> s.attribute(Attributes.ENTITY_INTERACTION_RANGE, 1.0, AttributeModifier.Operation.ADD_VALUE,
+					EquipmentSlotGroup.MAINHAND)),
+	HEARTWOOD_PLATE(Items.LEATHER_CHESTPLATE, EquipmentSlot.CHEST, "Heartwood Plate",
+			s -> s.attribute(Attributes.MAX_HEALTH, 8.0, AttributeModifier.Operation.ADD_VALUE, EquipmentSlotGroup.CHEST)
+					.dye(0x6B4A2B)),
+	TITANS_CROWN(Items.GOLDEN_HELMET, EquipmentSlot.HEAD, "Titan's Crown",
+			s -> s.attribute(Attributes.SCALE, 0.15, AttributeModifier.Operation.ADD_MULTIPLIED_BASE, EquipmentSlotGroup.HEAD)),
+	QUARRIERS_FIST(Items.DIAMOND_PICKAXE, EquipmentSlot.MAINHAND, "Quarrier's Fist",
+			s -> s.attribute(Attributes.BLOCK_BREAK_SPEED, 0.5, AttributeModifier.Operation.ADD_MULTIPLIED_BASE,
+					EquipmentSlotGroup.MAINHAND)
+					.attribute(Attributes.SUBMERGED_MINING_SPEED, 0.8, AttributeModifier.Operation.ADD_VALUE,
+							EquipmentSlotGroup.MAINHAND)),
+	BLOODLETTER(Items.NETHERITE_SWORD, EquipmentSlot.MAINHAND, "Bloodletter",
+			s -> s.effectLine("Heals you for part of the damage you deal")),
+	SECOND_WIND(Items.CHAINMAIL_CHESTPLATE, EquipmentSlot.CHEST, "Second Wind",
+			s -> s.effectLine("Survives one killing blow every 10 minutes")),
+	NIGHTEYE_HELM(Items.IRON_HELMET, EquipmentSlot.HEAD, "Nighteye Helm",
+			s -> s.effectLine("Night vision while worn"));
 
 	/** Custom-data key marking an artefact stack; the value is the lower-case enum name. */
 	public static final String TAG = "dire_difficulty_artefact";
@@ -94,15 +124,12 @@ public enum Artefact {
 	private final Item item;
 	private final EquipmentSlot slot;
 	private final String displayName;
-	private final String lore;
 	private final Consumer<Spec> spec;
 
-	Artefact(final Item item, final EquipmentSlot slot, final String displayName, final String lore,
-			final Consumer<Spec> spec) {
+	Artefact(final Item item, final EquipmentSlot slot, final String displayName, final Consumer<Spec> spec) {
 		this.item = item;
 		this.slot = slot;
 		this.displayName = displayName;
-		this.lore = lore;
 		this.spec = spec;
 	}
 
@@ -127,23 +154,23 @@ public enum Artefact {
 	/** The artefacts a Mythical of this type may carry; empty means "any it can wear". */
 	public static List<Artefact> forType(final EntityType<?> type) {
 		if (type == EntityTypes.ZOMBIFIED_PIGLIN) {
-			return List.of(DAWNBRAND, CROWN_OF_THE_UNBOWED, IRONHEART);
+			return List.of(DAWNBRAND, CROWN_OF_THE_UNBOWED, IRONHEART, HEARTWOOD_PLATE, SECOND_WIND);
 		}
 
 		if (type == EntityTypes.PIGLIN) {
-			return List.of(DAWNBRAND, CROWN_OF_THE_UNBOWED, IRONHEART, GALESKIPPERS);
+			return List.of(DAWNBRAND, CROWN_OF_THE_UNBOWED, IRONHEART, GALESKIPPERS, TITANS_CROWN);
 		}
 
 		if (type == EntityTypes.SKELETON) {
-			return List.of(WHISPERSTRING, CLOUDWALKERS, GALESKIPPERS);
+			return List.of(WHISPERSTRING, CLOUDWALKERS, GALESKIPPERS, HILLSTRIDERS, SPRINGHEEL_GREAVES);
 		}
 
 		if (type == EntityTypes.WITHER_SKELETON) {
-			return List.of(GRAVETAKER, KINGSFALL, STILLWATER_GREAVES);
+			return List.of(GRAVETAKER, KINGSFALL, STILLWATER_GREAVES, BLOODLETTER, SECOND_WIND);
 		}
 
 		if (type == EntityTypes.PIGLIN_BRUTE) {
-			return List.of(BASTION_BREAKER);
+			return List.of(BASTION_BREAKER, QUARRIERS_FIST);
 		}
 
 		if (type == EntityTypes.PILLAGER) {
@@ -151,14 +178,29 @@ public enum Artefact {
 		}
 
 		if (type == EntityTypes.VINDICATOR) {
-			return List.of(SKULLCRACKER, KINGSFALL);
+			return List.of(SKULLCRACKER, KINGSFALL, BLOODLETTER);
 		}
 
 		if (type == EntityTypes.EVOKER) {
 			return List.of(THE_LAST_WALL);
 		}
 
+		if (type == EntityTypes.ENDERMAN) {
+			return List.of(LONGREACH, FEATHERWEIGHT_MANTLE, TITANS_CROWN, NIGHTEYE_HELM, QUARRIERS_FIST);
+		}
+
 		return List.of();
+	}
+
+	/** The artefact this stack is, or {@code null}. */
+	public static Artefact of(final ItemStack stack) {
+		CustomData data = stack.get(DataComponents.CUSTOM_DATA);
+
+		if (data == null) {
+			return null;
+		}
+
+		return data.copyTag().getString(TAG).map(Artefact::byId).orElse(null);
 	}
 
 	/** Builds a fresh stack of this artefact. */
@@ -171,8 +213,6 @@ public enum Artefact {
 		stack.set(DataComponents.CUSTOM_NAME, Component.literal(this.displayName)
 				.withStyle(Style.EMPTY.withColor(Tuning.RARITY_COLOUR[Rarity.MYTHICAL.ordinal()])
 						.withBold(true).withItalic(false)));
-		stack.set(DataComponents.LORE, new ItemLore(List.of(Component.literal(this.lore)
-				.withStyle(Style.EMPTY.withColor(0xAAAAAA).withItalic(true)))));
 		stack.set(DataComponents.RARITY, net.minecraft.world.item.Rarity.EPIC);
 
 		CompoundTag tag = new CompoundTag();
@@ -220,6 +260,13 @@ public enum Artefact {
 					.add(patterns.getOrThrow(first), firstColour)
 					.add(patterns.getOrThrow(second), secondColour)
 					.build());
+			return this;
+		}
+
+		/** A plain tooltip line for a coded effect (the attribute ones describe themselves). */
+		Spec effectLine(final String text) {
+			this.stack.set(DataComponents.LORE, new ItemLore(List.of(Component.literal(text)
+					.withStyle(Style.EMPTY.withColor(0x5555FF).withItalic(false)))));
 			return this;
 		}
 

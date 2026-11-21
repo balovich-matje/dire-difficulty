@@ -115,6 +115,8 @@ public final class EliteTicker {
 
 		Rarity rarity = data.rarity();
 
+		EliteDominance.tick(level, mob, rarity);
+
 		for (final String id : data.affixes()) {
 			Affix affix = Affixes.byId(id);
 

@@ -297,6 +297,23 @@ public final class Tuning {
 	/** Per-dimension pause after a natural or raid mythical spawns, ticks (20 min). */
 	public static final int MYTHICAL_COOLDOWN_TICKS = 24_000;
 
+	// ---- Dominance: Legendary+ elites sometimes attack a nearby monster of another kind.
+
+	public static final int DOMINANCE_MIN_TIER = 4;
+	public static final double DOMINANCE_RADIUS = 10.0;
+	/** Chance per check that the elite picks a fight, when a victim is in sight. */
+	public static final double DOMINANCE_CHANCE = 0.2;
+	public static final int DOMINANCE_CHECK_TICKS = 40;
+	/** Pause after each pick, ticks (60 s). */
+	public static final int DOMINANCE_COOLDOWN_TICKS = 1200;
+
+	/** Bloodletter: share of melee damage dealt returned as health. */
+	public static final float ARTEFACT_LIFESTEAL = 0.2F;
+
+	/** Second Wind: health after the cheated death, and the cooldown (10 min). */
+	public static final float ARTEFACT_SECOND_WIND_HEALTH = 4.0F;
+	public static final int ARTEFACT_SECOND_WIND_COOLDOWN_TICKS = 12_000;
+
 	// =================================================================================
 	// ELITE LOOT — docs/DESIGN.md §2.4
 	//

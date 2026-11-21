@@ -63,6 +63,7 @@ public class DireDifficulty implements ModInitializer {
 		// nothing can observe the built-in fallbacks, and before TheHunt because a hunting mob
 		// may already be an elite.
 		EliteSystems.register();
+		com.diredifficulty.elite.ArtefactEffects.register();
 		TheHunt.register();
 
 		// Last, and it has to be: the command tree names the affix catalogue in its suggestion
